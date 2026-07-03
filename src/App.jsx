@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Upload from './components/Upload.jsx'
 import TimeSelect from './components/TimeSelect.jsx'
-import Cooking from './components/Cooking.jsx'
+import Cooking, { COOK_STEPS, REFRY_STEPS } from './components/Cooking.jsx'
 import PlanView from './components/PlanView.jsx'
 import StudyView from './components/StudyView.jsx'
 import FlashcardsView from './components/FlashcardsView.jsx'
 import TestView from './components/TestView.jsx'
 import ResultsView from './components/ResultsView.jsx'
 import { generateMaterials } from './lib/engine.js'
+import { generateMaterialsAI, hasApiKey } from './lib/ai.js'
 import { generatePlan } from './lib/planner.js'
 
 const STORAGE_KEY = 'cram-brulee-v1'
@@ -16,6 +17,7 @@ const emptyState = {
   screen: 'upload',
   materials: null, // { name, text }
   testTime: null, // ISO string
+  cookingJob: null, // { kind: 'initial' } | { kind: 'refry', weakTopics }
   plan: [],
   doneSteps: [],
   versions: [], // generated materials, newest last
@@ -70,10 +72,53 @@ export default function App() {
     setState(emptyState)
   }
 
-  const handleCooked = () => {
-    const plan = generatePlan(state.testTime)
-    const v1 = generateMaterials(state.materials.text, { version: 1 })
-    update({ plan, versions: [v1], activeVersion: 0, screen: 'plan' })
+  // Cook one batch of materials: Claude when the user has added an API key,
+  // the local engine otherwise — and as the safety net when the AI call fails.
+  const cookMaterials = useCallback(
+    async (opts) => {
+      const text = state.materials?.text || ''
+      if (hasApiKey()) {
+        try {
+          return await generateMaterialsAI(text, opts)
+        } catch (err) {
+          console.warn('AI kitchen unavailable, using the house engine:', err)
+          const fallback = generateMaterials(text, opts)
+          fallback.note = `The AI kitchen hit a snag (${err?.message || 'unknown error'}), so this batch was cooked with the house engine.`
+          return fallback
+        }
+      }
+      return generateMaterials(text, opts)
+    },
+    [state.materials]
+  )
+
+  const cookingJob = state.cookingJob || { kind: 'initial' }
+  const runCookingJob = useCallback(async () => {
+    if (cookingJob.kind === 'refry') {
+      const version = (state.versions[state.versions.length - 1]?.version || 1) + 1
+      return cookMaterials({ weakTopics: cookingJob.weakTopics, version })
+    }
+    return cookMaterials({ version: 1 })
+  }, [cookingJob, cookMaterials, state.versions])
+
+  const handleCooked = (fresh) => {
+    if (cookingJob.kind === 'refry') {
+      setState((s) => ({
+        ...s,
+        versions: [...s.versions, fresh],
+        activeVersion: s.versions.length,
+        cookingJob: null,
+        screen: 'study',
+      }))
+    } else {
+      update({
+        plan: generatePlan(state.testTime),
+        versions: [fresh],
+        activeVersion: 0,
+        cookingJob: null,
+        screen: 'plan',
+      })
+    }
   }
 
   const markDone = (stepId) =>
@@ -81,16 +126,8 @@ export default function App() {
       s.doneSteps.includes(stepId) ? s : { ...s, doneSteps: [...s.doneSteps, stepId] }
     )
 
-  const handleRefry = (weakTopics) => {
-    const version = latestVersion.version + 1
-    const fresh = generateMaterials(state.materials.text, { weakTopics, version })
-    setState((s) => ({
-      ...s,
-      versions: [...s.versions, fresh],
-      activeVersion: s.versions.length,
-      screen: 'study',
-    }))
-  }
+  const handleRefry = (weakTopics) =>
+    update({ cookingJob: { kind: 'refry', weakTopics }, screen: 'cooking' })
 
   const screens = {
     upload: (
@@ -101,10 +138,20 @@ export default function App() {
     time: (
       <TimeSelect
         onBack={() => update({ screen: 'upload' })}
-        onDone={(testTime) => update({ testTime, screen: 'cooking' })}
+        onDone={(testTime) =>
+          update({ testTime, cookingJob: { kind: 'initial' }, screen: 'cooking' })
+        }
       />
     ),
-    cooking: <Cooking onDone={handleCooked} />,
+    cooking: (
+      <Cooking
+        key={`${cookingJob.kind}-${state.versions.length}`}
+        steps={cookingJob.kind === 'refry' ? REFRY_STEPS : COOK_STEPS}
+        job={runCookingJob}
+        onDone={handleCooked}
+        ai={hasApiKey()}
+      />
+    ),
     plan: (
       <PlanView
         plan={state.plan}

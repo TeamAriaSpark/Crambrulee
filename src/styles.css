@@ -113,6 +113,25 @@ textarea.paste {
   background: #fffdf8;
 }
 textarea.paste:focus { outline: 2px solid var(--custard-deep); }
+.key-box {
+  margin-top: 22px; text-align: left;
+  border: 1.5px solid var(--line); border-radius: 14px;
+  padding: 12px 18px; background: #fffdf8;
+}
+.key-box summary { cursor: pointer; font-weight: 700; color: var(--caramel-deep); }
+.key-box summary::marker { color: var(--caramel); }
+.key-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.key-row input {
+  flex: 1; min-width: 220px; font: inherit; font-size: 0.9rem;
+  border: 1.5px solid var(--line); border-radius: 999px; padding: 9px 16px;
+  background: var(--card); color: var(--cocoa);
+}
+.key-row input:focus { outline: 2px solid var(--custard-deep); }
+.cook-note {
+  margin: 8px 0 0; font-size: 0.83rem; color: var(--bad);
+  background: #fbeae4; border-radius: 10px; padding: 6px 12px; display: inline-block;
+}
+
 .file-chip {
   display: inline-flex; align-items: center; gap: 8px; margin-top: 12px;
   background: var(--custard); border-radius: 999px; padding: 6px 16px; font-weight: 600;

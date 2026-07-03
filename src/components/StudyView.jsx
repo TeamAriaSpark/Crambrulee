@@ -40,7 +40,12 @@ export default function StudyView({
     <div className="card">
       <div className="session-head">
         <div>
-          <h2>🍳 Study session</h2>
+          <h2>
+            🍳 Study session{' '}
+            <span className="pill" title={version.source === 'ai' ? 'Cooked by Claude' : 'Cooked by the built-in engine'}>
+              {version.source === 'ai' ? '👨‍🍳 AI-cooked' : '🏠 house recipe'}
+            </span>
+          </h2>
           <p className="muted">
             {version.focusTopics.length > 0 ? (
               <>
@@ -51,6 +56,7 @@ export default function StudyView({
               'The most important stuff from your notes, reduced to a rich glaze.'
             )}
           </p>
+          {version.note && <p className="cook-note">⚠️ {version.note}</p>}
         </div>
         <SessionTimer minutes={25} />
       </div>

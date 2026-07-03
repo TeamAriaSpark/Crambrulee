@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { getApiKey, setApiKey } from '../lib/ai.js'
 
 const SAMPLE = `Photosynthesis
 Photosynthesis is the process plants use to convert light energy into chemical energy stored in glucose. It takes place in the chloroplasts, which contain the green pigment chlorophyll.
@@ -15,7 +16,14 @@ export default function Upload({ onDone }) {
   const [text, setText] = useState('')
   const [fileName, setFileName] = useState(null)
   const [over, setOver] = useState(false)
+  const [keyInput, setKeyInput] = useState(getApiKey())
+  const [keySaved, setKeySaved] = useState(Boolean(getApiKey()))
   const inputRef = useRef()
+
+  const saveKey = () => {
+    setApiKey(keyInput)
+    setKeySaved(Boolean(keyInput.trim()))
+  }
 
   const readFiles = async (files) => {
     const texts = []
@@ -101,6 +109,44 @@ export default function Upload({ onDone }) {
           Add a little more material — we need at least a few sentences to cook with.
         </p>
       )}
+
+      <details className="key-box">
+        <summary>
+          🔑 The secret ingredient: your Anthropic API key{' '}
+          {keySaved ? <span className="pill">added ✓</span> : <span className="muted small">(optional)</span>}
+        </summary>
+        <p className="muted small">
+          With a key, <strong>Claude cooks your materials for real</strong> — smarter summaries,
+          sharper flashcards, exam-grade practice questions. Without one, our built-in house
+          engine does the cooking. The key is stored only in this browser and your notes go
+          straight from your browser to Anthropic — never through us.
+        </p>
+        <div className="key-row">
+          <input
+            type="password"
+            placeholder="sk-ant-…"
+            value={keyInput}
+            autoComplete="off"
+            onChange={(e) => setKeyInput(e.target.value)}
+            onBlur={saveKey}
+          />
+          <button className="btn ghost small-btn" onClick={saveKey}>
+            {keySaved ? 'Update' : 'Save'}
+          </button>
+          {keySaved && (
+            <button
+              className="btn ghost small-btn"
+              onClick={() => {
+                setApiKey('')
+                setKeyInput('')
+                setKeySaved(false)
+              }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      </details>
     </div>
   )
 }
