@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { TIPS } from '../lib/planner.js'
+import { TIPS, suggestSleeps } from '../lib/planner.js'
 
 const clock = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
@@ -39,7 +39,9 @@ export default function PlanView({
   onBreakEnd,
 }) {
   const tests = plan?.tests || []
-  const sleeps = plan?.sleeps || []
+  // Backfill sleep suggestions for sessions saved before sleeps existed.
+  const sleeps =
+    plan?.sleeps ?? suggestSleeps(plan.startedAt, plan.finalReviewAt)
   const taken = Math.min(results.length, tests.length)
   const nextTest = tests[taken] || null
 
@@ -124,13 +126,22 @@ export default function PlanView({
           const left = pos(s.from)
           const width = Math.max(pos(s.to) - left, 3)
           return (
-            <div
-              key={i}
-              className="lt-sleep"
-              style={{ left: `${left}%`, width: `${width}%` }}
-              title={`Suggested sleep · ${clockFull(s.from)} – ${clock(s.to)}`}
-            >
-              💤
+            <div key={i}>
+              <div
+                className="lt-sleep"
+                style={{ left: `${left}%`, width: `${width}%` }}
+                title={`Suggested sleep · ${clockFull(s.from)} – ${clock(s.to)}`}
+              >
+                💤
+              </div>
+              {width >= 10 && (
+                <div className="lt-sleep-label" style={{ left: `${left + width / 2}%` }}>
+                  <span className="lt-name">😴 Sleep</span>
+                  <span className="lt-label">
+                    {clock(s.from)}–{clock(s.to)}
+                  </span>
+                </div>
+              )}
             </div>
           )
         })}

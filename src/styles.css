@@ -121,12 +121,17 @@ h3 { margin: 0 0 4px; font-size: 1.05rem; }
   border-radius: 999px; background: var(--crust);
 }
 .lt-sleep {
-  position: absolute; top: 26px; height: 14px; border-radius: 999px;
-  background: repeating-linear-gradient(45deg, #cdd8f0, #cdd8f0 6px, #dde5f6 6px, #dde5f6 12px);
-  border: 1px solid var(--step-sleep);
+  position: absolute; top: 24px; height: 18px; border-radius: 999px;
+  background: repeating-linear-gradient(45deg, #b9c9ec, #b9c9ec 6px, #d3ddf4 6px, #d3ddf4 12px);
+  border: 1.5px solid var(--step-sleep);
   display: flex; align-items: center; justify-content: center;
-  font-size: 0.62rem; line-height: 1; overflow: hidden;
+  font-size: 0.72rem; line-height: 1; overflow: hidden; z-index: 1;
 }
+.lt-sleep-label {
+  position: absolute; top: 44px; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center;
+}
+.lt-sleep-label .lt-name { color: var(--step-sleep); }
 .lt-marker {
   position: absolute; top: 8px; transform: translateX(-50%);
   display: flex; flex-direction: column; align-items: center;

@@ -38,14 +38,34 @@ export const TIPS = [
     tip: 'Sip green tea',
     why: 'Caffeine plus L-theanine gives calm, focused alertness — the combo beats coffee for attention.',
   },
-  {
-    emoji: '💤',
-    tip: 'Studying overnight? Real sleep beats more hours',
-    why: 'Sleep is when your brain moves today’s studying into long-term memory — an all-nighter undoes the work.',
-  },
 ]
 
 const addMin = (d, m) => new Date(d.getTime() + m * 60000)
+
+// Suggested sleep blocks (23:00–07:00) whenever the window crosses a night
+// with at least a couple of hours to sleep in it. Exported so the plan view
+// can backfill sleeps for sessions saved before this existed.
+export function suggestSleeps(fromISO, toISO) {
+  const from = new Date(fromISO)
+  const to = new Date(toISO)
+  const sleeps = []
+  if (to - from < 9 * 3600000) return sleeps
+  let bed = new Date(from)
+  bed.setHours(23, 0, 0, 0)
+  if (from.getHours() < 7) bed.setDate(bed.getDate() - 1)
+  while (bed < to) {
+    const wake = new Date(bed)
+    wake.setHours(31, 0, 0, 0) // 07:00 the next morning
+    const start = new Date(Math.max(bed.getTime(), from.getTime()))
+    const end = new Date(Math.min(wake.getTime(), to.getTime()))
+    if (end - start >= 2 * 3600000) {
+      sleeps.push({ from: start.toISOString(), to: end.toISOString() })
+    }
+    bed = new Date(wake)
+    bed.setHours(23, 0, 0, 0)
+  }
+  return sleeps
+}
 
 export function generatePlan(testTimeISO, now = new Date()) {
   const testTime = new Date(testTimeISO)
@@ -64,25 +84,7 @@ export function generatePlan(testTimeISO, now = new Date()) {
     suggestedAt: addMin(now, Math.round((workMin * (i + 1)) / (plannedTests + 0.35))).toISOString(),
   }))
 
-  // Suggested sleep blocks (23:00–07:00) whenever the runway crosses a night
-  // with at least a couple of hours to sleep in it.
-  const sleeps = []
-  if (hours >= 9) {
-    let bed = new Date(now)
-    bed.setHours(23, 0, 0, 0)
-    if (now.getHours() < 7) bed.setDate(bed.getDate() - 1)
-    while (bed < finalReviewAt) {
-      const wake = new Date(bed)
-      wake.setHours(31, 0, 0, 0) // 07:00 the next morning
-      const from = new Date(Math.max(bed.getTime(), now.getTime()))
-      const to = new Date(Math.min(wake.getTime(), finalReviewAt.getTime()))
-      if (to - from >= 2 * 3600000) {
-        sleeps.push({ from: from.toISOString(), to: to.toISOString() })
-      }
-      bed = new Date(wake)
-      bed.setHours(23, 0, 0, 0)
-    }
-  }
+  const sleeps = suggestSleeps(now.toISOString(), finalReviewAt.toISOString())
 
   // Never suggest a practice test mid-sleep — nudge it to the morning after —
   // and keep at least 45 minutes between suggestions when shifts collide.
