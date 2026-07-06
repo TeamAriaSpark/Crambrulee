@@ -179,6 +179,7 @@ h3 { margin: 0 0 4px; font-size: 1.05rem; }
 .lt-marker.rowb .lt-tag { margin-top: 56px; }
 .lt-name { font-size: 0.7rem; font-weight: 800; color: var(--cocoa); white-space: nowrap; }
 .lt-legend { margin: 2px 0 0; }
+.lt-heading { margin: 14px 0 0; }
 .level-note { white-space: nowrap; }
 .lt-icon {
   width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;

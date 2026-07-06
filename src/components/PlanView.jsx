@@ -215,11 +215,6 @@ export default function PlanView({
       <div className="session-head">
         <div>
           <h2>🗺️ Your cram plan</h2>
-          <p className="muted">
-            Study and quiz yourself in any order — aim for{' '}
-            <strong>30% reading / 70% recall</strong>, and hit the practice tests when they come
-            up.
-          </p>
         </div>
         <div className="head-controls">
           <label className="level-select">
@@ -255,6 +250,7 @@ export default function PlanView({
         />
       )}
 
+      <h3 className="lt-heading">⏳ Your runway to test day</h3>
       <div
         ref={timelineRef}
         className={`line-timeline ${hasRowB ? 'tall' : ''}`}
