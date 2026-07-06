@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { TIPS, suggestSleeps } from '../lib/planner.js'
 
 const clock = (iso) =>
@@ -22,6 +22,9 @@ const fmtIn = (iso) => {
   return `in ~${Math.round(min / 6) / 10} h`
 }
 
+const SLEEP_SCIENCE =
+  'Sleep isn’t lost study time — during deep sleep your brain replays what you learned and files it into long-term memory. Students who sleep before an exam consistently beat the all-nighters.'
+
 export default function PlanView({
   plan,
   testTime,
@@ -34,14 +37,14 @@ export default function PlanView({
   onStudy,
   onRecall,
   onTest,
+  onSleepChange,
   onBreakStart,
   onBreakExtend,
   onBreakEnd,
 }) {
   const tests = plan?.tests || []
   // Backfill sleep suggestions for sessions saved before sleeps existed.
-  const sleeps =
-    plan?.sleeps ?? suggestSleeps(plan.startedAt, plan.finalReviewAt)
+  const sleeps = plan?.sleeps ?? suggestSleeps(plan.startedAt, plan.finalReviewAt)
   const taken = Math.min(results.length, tests.length)
   const nextTest = tests[taken] || null
 
@@ -51,6 +54,78 @@ export default function PlanView({
   const span = Math.max(axisEnd - axisStart, 1)
   const pos = (iso) => Math.min(100, Math.max(0, ((new Date(iso).getTime() - axisStart) / span) * 100))
   const nowPct = pos(new Date().toISOString())
+
+  // Zigzag label rows so close markers never overlap: a marker whose label
+  // would crowd the previous top-row label drops to a second row.
+  const markerList = [
+    ...tests.map((t, i) => ({
+      key: t.id,
+      at: t.suggestedAt,
+      icon: i < taken ? '✓' : '🔥',
+      name: `Test ${t.n}`,
+      cls: `${i < taken ? 'past' : ''} ${i === taken ? 'next' : ''}`,
+      title: `Practice test ${t.n} — suggested ${clockFull(t.suggestedAt)}`,
+    })),
+    {
+      key: 'end',
+      at: plan.testAt || testTime,
+      icon: '🎓',
+      name: 'Your test',
+      cls: 'end',
+      title: `Test time · ${clockFull(plan.testAt || testTime)}`,
+    },
+  ]
+  let lastTopRow = -Infinity
+  const markers = markerList.map((m) => {
+    const p = pos(m.at)
+    if (p - lastTopRow < 10) return { ...m, p, row: 'b' }
+    lastTopRow = p
+    return { ...m, p, row: 'a' }
+  })
+  const hasRowB = markers.some((m) => m.row === 'b')
+
+  // Drag-to-edit sleep edges: pointer position → time, snapped to 15 min.
+  const timelineRef = useRef(null)
+  const dragRef = useRef(null)
+  const sleepsRef = useRef(sleeps)
+  sleepsRef.current = sleeps
+  useEffect(() => {
+    const move = (e) => {
+      const d = dragRef.current
+      if (!d || !timelineRef.current) return
+      const rect = timelineRef.current.getBoundingClientRect()
+      const pct = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+      const SNAP = 15 * 60000
+      const t = Math.round((axisStart + pct * span) / SNAP) * SNAP
+      const current = sleepsRef.current[d.i]
+      if (!current) return
+      const from = new Date(current.from).getTime()
+      const to = new Date(current.to).getTime()
+      const finalReview = new Date(plan.finalReviewAt).getTime()
+      const MIN_SLEEP = 60 * 60000
+      const next =
+        d.edge === 'from'
+          ? { from: new Date(Math.max(axisStart, Math.min(t, to - MIN_SLEEP))).toISOString(), to: current.to }
+          : { from: current.from, to: new Date(Math.min(finalReview, Math.max(t, from + MIN_SLEEP))).toISOString() }
+      onSleepChange(sleepsRef.current.map((s, j) => (j === d.i ? next : s)))
+    }
+    const up = () => {
+      dragRef.current = null
+      document.body.style.cursor = ''
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+  }, [axisStart, span, plan.finalReviewAt, onSleepChange])
+
+  const startDrag = (i, edge) => (e) => {
+    e.preventDefault()
+    dragRef.current = { i, edge }
+    document.body.style.cursor = 'ew-resize'
+  }
 
   // Tallies of real time on each task.
   const studySec = timeSpent?.study || 0
@@ -68,7 +143,8 @@ export default function PlanView({
           : 'Nicely recall-heavy. 💪'
 
   // Break timer state.
-  const [customMin, setCustomMin] = useState(10)
+  const SUGGESTED_BREAK = 45
+  const [customMin, setCustomMin] = useState(SUGGESTED_BREAK)
   const breakRunning = breakTimer && new Date(breakTimer.until) > Date.now()
   const breakOver = breakTimer && !breakRunning
   const breakRemaining = breakRunning
@@ -82,7 +158,6 @@ export default function PlanView({
     : TIPS[(taken * 3 + new Date().getHours()) % TIPS.length]
   const mm = String(Math.floor(breakRemaining / 60))
   const ss = String(breakRemaining % 60).padStart(2, '0')
-  const SUGGESTED_BREAK = 10
 
   // Compact time-until-test for the NOW marker.
   const leftMs = countdown?.ms ?? Math.max(0, axisEnd - Date.now())
@@ -102,16 +177,18 @@ export default function PlanView({
           </p>
         </div>
         <div className="head-controls">
-          <label
-            className="level-select"
-            title="Sets how hard your materials are. Score 80%+ on a practice test to level up automatically."
-          >
+          <label className="level-select">
             <span className="muted small">Level</span>
             <select value={level} onChange={(e) => onLevelChange(e.target.value)}>
               <option value="novice">🌱 Novice</option>
               <option value="competent">🍳 Competent</option>
               <option value="expert">👨‍🍳 Expert</option>
             </select>
+            <span className="level-tooltip">
+              <strong>🌡️ Difficulty</strong> — changes how hard your summaries, flashcards, and
+              practice tests are. Pick one yourself, or it levels up automatically when you
+              score 80%+ on a practice test.
+            </span>
           </label>
           <span className="muted small level-note">
             score 80%+ to level up · {taken}/{tests.length} tests taken
@@ -119,60 +196,54 @@ export default function PlanView({
         </div>
       </div>
 
-      <div className="line-timeline" aria-label="Timeline until your test">
+      <div
+        ref={timelineRef}
+        className={`line-timeline ${hasRowB ? 'tall' : ''}`}
+        aria-label="Timeline until your test"
+      >
         <div className="lt-track" />
         <div className="lt-progress" style={{ width: `${nowPct}%` }} />
         {sleeps.map((s, i) => {
           const left = pos(s.from)
           const width = Math.max(pos(s.to) - left, 3)
+          const mid = Math.min(Math.max(left + width / 2, 16), 84)
           return (
-            <div key={i}>
-              <div
-                className="lt-sleep"
-                style={{ left: `${left}%`, width: `${width}%` }}
-                title={`Suggested sleep · ${clockFull(s.from)} – ${clock(s.to)}`}
-              >
-                💤
+            <div key={i} className="lt-sleep-wrap">
+              <div className="lt-sleep" style={{ left: `${left}%`, width: `${width}%` }}>
+                <span className="lt-sleep-text">
+                  {width >= 16 ? `😴 sleep ${clock(s.from)}–${clock(s.to)}` : '💤'}
+                </span>
+                <span className="lt-handle left" onPointerDown={startDrag(i, 'from')} />
+                <span className="lt-handle right" onPointerDown={startDrag(i, 'to')} />
               </div>
-              {width >= 10 && (
-                <div className="lt-sleep-label" style={{ left: `${left + width / 2}%` }}>
-                  <span className="lt-name">😴 Sleep</span>
-                  <span className="lt-label">
-                    {clock(s.from)}–{clock(s.to)}
-                  </span>
-                </div>
-              )}
+              <div className="lt-tooltip" style={{ left: `${mid}%` }}>
+                <strong>💤 Why sleep instead of cramming?</strong> {SLEEP_SCIENCE}
+                <span className="lt-tooltip-hint">↔ Drag the ends to match your real bedtime.</span>
+              </div>
             </div>
           )
         })}
-        {tests.map((t, i) => {
-          const crowded =
-            i > 0 && pos(t.suggestedAt) - pos(tests[i - 1].suggestedAt) < 9
-          return (
-            <div
-              key={t.id}
-              className={`lt-marker ${i < taken ? 'past' : ''} ${i === taken ? 'next' : ''} ${crowded ? 'crowded' : ''}`}
-              style={{ left: `${pos(t.suggestedAt)}%` }}
-              title={`Practice test ${t.n} — suggested ${clockFull(t.suggestedAt)}`}
-            >
-              <span className="lt-icon">{i < taken ? '✓' : '🔥'}</span>
-              <span className="lt-name">Test {t.n}</span>
-              <span className="lt-label">{clock(t.suggestedAt)}</span>
-            </div>
-          )
-        })}
-        <div className="lt-marker end" style={{ left: '100%' }} title={`Test time · ${clockFull(plan.testAt || testTime)}`}>
-          <span className="lt-icon">🎓</span>
-          <span className="lt-name">Your test</span>
-          <span className="lt-label">{clock(plan.testAt || testTime)}</span>
-        </div>
+        {markers.map((m) => (
+          <div
+            key={m.key}
+            className={`lt-marker ${m.cls} ${m.row === 'b' ? 'rowb' : ''}`}
+            style={{ left: `${m.p}%` }}
+            title={m.title}
+          >
+            <span className="lt-icon">{m.icon}</span>
+            <span className="lt-tag">
+              <span className="lt-name">{m.name}</span>
+              <span className="lt-label">{clock(m.at)}</span>
+            </span>
+          </div>
+        ))}
         <div className="lt-now" style={{ left: `${Math.min(Math.max(nowPct, 4), 92)}%` }}>
           <span className="lt-now-dot" />
           <span className="lt-now-label">{leftLabel}</span>
         </div>
       </div>
       <p className="lt-legend muted small">
-        🔥 practice test{sleeps.length > 0 && <> · 💤 suggested sleep</>} · 🎓 your real test
+        🔥 practice test{sleeps.length > 0 && <> · 💤 suggested sleep (hover for the science, drag to adjust)</>} · 🎓 your real test
       </p>
 
       {verdict && (
@@ -203,50 +274,15 @@ export default function PlanView({
         </button>
       </div>
 
-      <div className="test-suggest">
-        {nextTest ? (
-          <>
-            <div className="suggest-main">
-              <div className="milestone-eyebrow">
-                🔥 Practice test {nextTest.n} of {tests.length} — suggested at
-              </div>
-              <div className="suggest-time">
-                {clock(nextTest.suggestedAt)}
-                <span className="suggest-in">{fmtIn(nextTest.suggestedAt)}</span>
-              </div>
-              <p className="muted small" style={{ margin: '2px 0 0' }}>
-                Afterwards your materials are rebuilt around what you missed.
-              </p>
-            </div>
-            <button className="btn" onClick={onTest}>
-              Take it {fmtIn(nextTest.suggestedAt) === 'now' ? 'now ' : ''}🔥
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="suggest-main">
-              <div className="milestone-eyebrow">🏁 All tests taken — final review at</div>
-              <div className="suggest-time">{clock(plan.finalReviewAt)}</div>
-              <p className="muted small" style={{ margin: '2px 0 0' }}>
-                One calm pass over the cheat sheet, then step away — you’re ready.
-              </p>
-            </div>
-            <button className="btn ghost" onClick={onTest}>
-              Retake a test 🔥
-            </button>
-          </>
-        )}
-      </div>
-
       <div
         className={`break-card ${breakRunning ? 'running' : ''}`}
-        title={`Rest is when your brain consolidates what you just learned. Suggested: ~${SUGGESTED_BREAK} min for every hour of studying.`}
+        title="Rest is when your brain consolidates what you just learned."
       >
         <div className="break-line">
           <strong>☕ Break</strong>
           {!breakTimer && (
             <>
-              {[5, 10, 15].map((m) => (
+              {[10, 20, 45].map((m) => (
                 <button
                   key={m}
                   className={`preset-chip ${m === SUGGESTED_BREAK ? 'selected' : ''}`}
@@ -301,6 +337,40 @@ export default function PlanView({
         </p>
       </div>
 
+      <div className="test-suggest">
+        {nextTest ? (
+          <>
+            <div className="suggest-main">
+              <div className="milestone-eyebrow">
+                🔥 Practice test {nextTest.n} of {tests.length} — suggested at
+              </div>
+              <div className="suggest-time">
+                {clock(nextTest.suggestedAt)}
+                <span className="suggest-in">{fmtIn(nextTest.suggestedAt)}</span>
+              </div>
+              <p className="muted small" style={{ margin: '2px 0 0' }}>
+                Afterwards your materials are rebuilt around what you missed.
+              </p>
+            </div>
+            <button className="btn" onClick={onTest}>
+              Take it {fmtIn(nextTest.suggestedAt) === 'now' ? 'now ' : ''}🔥
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="suggest-main">
+              <div className="milestone-eyebrow">🏁 All tests taken — final review at</div>
+              <div className="suggest-time">{clock(plan.finalReviewAt)}</div>
+              <p className="muted small" style={{ margin: '2px 0 0' }}>
+                One calm pass over the cheat sheet, then step away — you’re ready.
+              </p>
+            </div>
+            <button className="btn ghost" onClick={onTest}>
+              Retake a test 🔥
+            </button>
+          </>
+        )}
+      </div>
     </div>
   )
 }

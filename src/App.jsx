@@ -248,6 +248,9 @@ export default function App() {
         onStudy={() => update({ screen: 'study' })}
         onRecall={() => update({ screen: 'flashcards' })}
         onTest={() => update({ screen: 'test' })}
+        onSleepChange={(sleeps) =>
+          setState((s) => ({ ...s, plan: { ...s.plan, sleeps } }))
+        }
         {...breakHandlers}
       />
     ),
