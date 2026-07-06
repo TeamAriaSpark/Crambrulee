@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { TIPS, suggestSleeps } from '../lib/planner.js'
+import { LEVELS, LEVEL_META } from '../lib/engine.js'
 
 const clock = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
@@ -347,9 +348,21 @@ export default function PlanView({
               <div className="suggest-time">
                 {clock(nextTest.suggestedAt)}
                 <span className="suggest-in">{fmtIn(nextTest.suggestedAt)}</span>
+                <span className="pill" title="This test is built at your current level">
+                  {LEVEL_META[level]?.emoji} {level} difficulty
+                </span>
               </div>
               <p className="muted small" style={{ margin: '2px 0 0' }}>
                 Afterwards your materials are rebuilt around what you missed.
+                {LEVELS.indexOf(level) < LEVELS.length - 1 ? (
+                  <>
+                    {' '}Score <strong>80%+</strong> to move up to{' '}
+                    {LEVEL_META[LEVELS[LEVELS.indexOf(level) + 1]]?.emoji}{' '}
+                    <strong>{LEVELS[LEVELS.indexOf(level) + 1]}</strong>.
+                  </>
+                ) : (
+                  <> You’re at the top shelf — keep it crispy. 👨‍🍳</>
+                )}
               </p>
             </div>
             <button className="btn" onClick={onTest}>
