@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { TIPS } from '../lib/planner.js'
-import { LEVEL_META } from '../lib/engine.js'
 
 const clock = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
@@ -81,6 +80,13 @@ export default function PlanView({
     : TIPS[(taken * 3 + new Date().getHours()) % TIPS.length]
   const mm = String(Math.floor(breakRemaining / 60))
   const ss = String(breakRemaining % 60).padStart(2, '0')
+  const SUGGESTED_BREAK = 10
+
+  // Compact time-until-test for the NOW marker.
+  const leftMs = countdown?.ms ?? Math.max(0, axisEnd - Date.now())
+  const leftH = Math.floor(leftMs / 3600000)
+  const leftM = Math.floor((leftMs % 3600000) / 60000)
+  const leftLabel = leftH > 0 ? `${leftH}h ${leftM}m left` : `${leftM}m left`
 
   return (
     <div className="card">
@@ -94,7 +100,6 @@ export default function PlanView({
           </p>
         </div>
         <div className="head-controls">
-          {countdown && <span className="pill hot">⏲️ {countdown.text} left</span>}
           <label
             className="level-select"
             title="Sets how hard your materials are. Score 80%+ on a practice test to level up automatically."
@@ -106,6 +111,9 @@ export default function PlanView({
               <option value="expert">👨‍🍳 Expert</option>
             </select>
           </label>
+          <span className="muted small level-note">
+            score 80%+ on a test to level up · {taken} of {tests.length} taken
+          </span>
         </div>
       </div>
 
@@ -126,26 +134,35 @@ export default function PlanView({
             </div>
           )
         })}
-        {tests.map((t, i) => (
-          <div
-            key={t.id}
-            className={`lt-marker ${i < taken ? 'past' : ''} ${i === taken ? 'next' : ''}`}
-            style={{ left: `${pos(t.suggestedAt)}%` }}
-            title={`Practice test ${t.n} — suggested ${clockFull(t.suggestedAt)}`}
-          >
-            <span className="lt-icon">{i < taken ? '✓' : '🔥'}</span>
-            <span className="lt-label">{clock(t.suggestedAt)}</span>
-          </div>
-        ))}
+        {tests.map((t, i) => {
+          const crowded =
+            i > 0 && pos(t.suggestedAt) - pos(tests[i - 1].suggestedAt) < 9
+          return (
+            <div
+              key={t.id}
+              className={`lt-marker ${i < taken ? 'past' : ''} ${i === taken ? 'next' : ''} ${crowded ? 'crowded' : ''}`}
+              style={{ left: `${pos(t.suggestedAt)}%` }}
+              title={`Practice test ${t.n} — suggested ${clockFull(t.suggestedAt)}`}
+            >
+              <span className="lt-icon">{i < taken ? '✓' : '🔥'}</span>
+              <span className="lt-name">Test {t.n}</span>
+              <span className="lt-label">{clock(t.suggestedAt)}</span>
+            </div>
+          )
+        })}
         <div className="lt-marker end" style={{ left: '100%' }} title={`Test time · ${clockFull(plan.testAt || testTime)}`}>
           <span className="lt-icon">🎓</span>
+          <span className="lt-name">Your test</span>
           <span className="lt-label">{clock(plan.testAt || testTime)}</span>
         </div>
-        <div className="lt-now" style={{ left: `${nowPct}%` }}>
+        <div className="lt-now" style={{ left: `${Math.min(Math.max(nowPct, 4), 92)}%` }}>
           <span className="lt-now-dot" />
-          <span className="lt-now-label">now</span>
+          <span className="lt-now-label">{leftLabel}</span>
         </div>
       </div>
+      <p className="lt-legend muted small">
+        🔥 practice test{sleeps.length > 0 && <> · 💤 suggested sleep</>} · 🎓 your real test
+      </p>
 
       {verdict && (
         <p className="muted small mix-caption">
@@ -159,13 +176,19 @@ export default function PlanView({
           <span className="action-emoji">📖</span>
           <span className="action-title">Study</span>
           <span className="action-sub">Summary &amp; cheat sheet</span>
-          <span className="action-tally">{tally(studySec)}</span>
+          <span className="action-chips">
+            <span className="action-tally">{tally(studySec)}</span>
+            <span className="action-target">target ~30% of your time</span>
+          </span>
         </button>
         <button className="action-card recall" onClick={onRecall}>
           <span className="action-emoji">🧠</span>
           <span className="action-title">Active recall</span>
           <span className="action-sub">Flashcards, notes closed</span>
-          <span className="action-tally hot-tally">{tally(activeSec)}</span>
+          <span className="action-chips">
+            <span className="action-tally hot-tally">{tally(activeSec)}</span>
+            <span className="action-target">target ~70% (incl. tests)</span>
+          </span>
         </button>
       </div>
 
@@ -208,13 +231,24 @@ export default function PlanView({
         <div className="break-head">
           <strong>☕ Break timer</strong>
           <span className="action-tally">{tally(breakSec)}</span>
+          <span className="muted small">
+            suggested: ~{SUGGESTED_BREAK} min for every hour of studying
+          </span>
         </div>
+        <p className="break-benefit">
+          Breaks aren’t slacking — resting between sessions is when your brain consolidates
+          what you just learned, so it sticks for the test.
+        </p>
 
         {!breakTimer && (
           <div className="break-controls">
             {[5, 10, 15].map((m) => (
-              <button key={m} className="preset-chip" onClick={() => onBreakStart(m)}>
-                {m} min
+              <button
+                key={m}
+                className={`preset-chip ${m === SUGGESTED_BREAK ? 'selected' : ''}`}
+                onClick={() => onBreakStart(m)}
+              >
+                {m} min{m === SUGGESTED_BREAK ? ' ★' : ''}
               </button>
             ))}
             <span className="break-custom">
@@ -264,10 +298,6 @@ export default function PlanView({
         </div>
       </div>
 
-      <p className="muted small" style={{ marginTop: 16 }}>
-        {LEVEL_META[level]?.emoji} Level: <strong>{level}</strong> — score 80%+ on a practice
-        test to level up. 🔥 {taken} of {tests.length} tests taken.
-      </p>
     </div>
   )
 }

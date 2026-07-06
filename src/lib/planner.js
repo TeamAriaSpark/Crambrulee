@@ -64,9 +64,10 @@ export function generatePlan(testTimeISO, now = new Date()) {
     suggestedAt: addMin(now, Math.round((workMin * (i + 1)) / (plannedTests + 0.35))).toISOString(),
   }))
 
-  // Suggested sleep blocks (23:00–07:00) for runways that cross a night.
+  // Suggested sleep blocks (23:00–07:00) whenever the runway crosses a night
+  // with at least a couple of hours to sleep in it.
   const sleeps = []
-  if (hours > 12) {
+  if (hours >= 9) {
     let bed = new Date(now)
     bed.setHours(23, 0, 0, 0)
     if (now.getHours() < 7) bed.setDate(bed.getDate() - 1)
@@ -75,7 +76,7 @@ export function generatePlan(testTimeISO, now = new Date()) {
       wake.setHours(31, 0, 0, 0) // 07:00 the next morning
       const from = new Date(Math.max(bed.getTime(), now.getTime()))
       const to = new Date(Math.min(wake.getTime(), finalReviewAt.getTime()))
-      if (to - from >= 3 * 3600000) {
+      if (to - from >= 2 * 3600000) {
         sleeps.push({ from: from.toISOString(), to: to.toISOString() })
       }
       bed = new Date(wake)
@@ -83,11 +84,22 @@ export function generatePlan(testTimeISO, now = new Date()) {
     }
   }
 
-  // Never suggest a practice test mid-sleep — nudge it to the morning after.
+  // Never suggest a practice test mid-sleep — nudge it to the morning after —
+  // and keep at least 45 minutes between suggestions when shifts collide.
   for (const t of tests) {
     for (const s of sleeps) {
       const at = new Date(t.suggestedAt)
       if (at > new Date(s.from) && at < new Date(s.to)) t.suggestedAt = s.to
+    }
+  }
+  const MIN_GAP = 45 * 60000
+  for (let i = 1; i < tests.length; i++) {
+    const prev = new Date(tests[i - 1].suggestedAt).getTime()
+    const cur = new Date(tests[i].suggestedAt).getTime()
+    if (cur - prev < MIN_GAP) {
+      tests[i].suggestedAt = new Date(
+        Math.min(prev + MIN_GAP, finalReviewAt.getTime())
+      ).toISOString()
     }
   }
 

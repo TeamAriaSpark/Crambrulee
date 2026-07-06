@@ -111,7 +111,7 @@ h3 { margin: 0 0 4px; font-size: 1.05rem; }
 }
 
 /* proportional line timeline: now → test time */
-.line-timeline { position: relative; height: 74px; margin: 22px 6px 4px; }
+.line-timeline { position: relative; height: 92px; margin: 22px 10px 0; }
 .lt-track {
   position: absolute; left: 0; right: 0; top: 30px; height: 6px;
   border-radius: 999px; background: var(--custard);
@@ -129,9 +129,14 @@ h3 { margin: 0 0 4px; font-size: 1.05rem; }
 }
 .lt-marker {
   position: absolute; top: 8px; transform: translateX(-50%);
-  display: flex; flex-direction: column; align-items: center; gap: 22px;
+  display: flex; flex-direction: column; align-items: center;
   pointer-events: auto;
 }
+.lt-marker .lt-icon { margin-bottom: 24px; }
+.lt-name { font-size: 0.7rem; font-weight: 800; color: var(--cocoa); white-space: nowrap; }
+.lt-marker.crowded .lt-label { display: none; }
+.lt-legend { margin: 2px 0 0; }
+.level-note { text-align: right; }
 .lt-icon {
   width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
   background: linear-gradient(135deg, #fff4ee, #ffe4cf);
@@ -297,12 +302,18 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 }
 .suggest-in { font-size: 0.9rem; font-weight: 700; color: var(--bad); }
 
+.action-chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .action-tally {
   font-size: 0.74rem; font-weight: 800; color: var(--caramel-deep);
   background: var(--custard); border-radius: 999px; padding: 2px 10px;
   font-variant-numeric: tabular-nums;
 }
 .action-tally.hot-tally { background: #ffe3d6; color: var(--bad); }
+.action-target {
+  font-size: 0.74rem; font-weight: 700; color: var(--cocoa-soft);
+  border: 1.5px dashed var(--line); border-radius: 999px; padding: 1px 10px;
+  white-space: nowrap;
+}
 
 /* break timer */
 .break-card {
@@ -310,7 +321,12 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
   padding: 14px 18px; background: linear-gradient(135deg, #f2f7ec, #e9f2e0);
 }
 .break-card.running { border-style: solid; border-width: 2px; }
-.break-head { display: flex; align-items: center; gap: 10px; }
+.break-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.break-benefit {
+  margin: 8px 0 0; font-size: 0.86rem; font-weight: 600; color: #3e5e33;
+  background: rgba(255, 255, 255, 0.55); border-left: 4px solid var(--step-break);
+  border-radius: 8px; padding: 7px 12px;
+}
 .break-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .break-custom { display: inline-flex; align-items: center; gap: 6px; }
 .break-custom input {
