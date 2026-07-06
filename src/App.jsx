@@ -22,7 +22,8 @@ const emptyState = {
   versions: [], // generated materials, newest last
   activeVersion: 0, // index into versions being viewed
   results: [], // { versionId, score, total, byTopic, weakTopics, at }
-  timeSpent: { study: 0, active: 0 }, // seconds actually spent on each kind of screen
+  timeSpent: { study: 0, active: 0, break: 0 }, // seconds actually spent on each kind of task
+  breakTimer: null, // { startedAt, lengthMin, until } while a break is running/over
   level: 'novice', // novice | competent | expert — advances on strong practice-test scores
 }
 
@@ -81,6 +82,48 @@ export default function App() {
     }, TICK * 1000)
     return () => clearInterval(t)
   }, [state.screen])
+
+  // Break time tallies while the break timer runs, whatever screen or tab
+  // state — the whole point of a break is walking away.
+  useEffect(() => {
+    if (!state.breakTimer) return
+    const t = setInterval(() => {
+      setState((s) => {
+        if (!s.breakTimer || new Date(s.breakTimer.until) <= Date.now()) return s
+        return {
+          ...s,
+          timeSpent: { ...s.timeSpent, break: (s.timeSpent?.break || 0) + 5 },
+        }
+      })
+    }, 5000)
+    return () => clearInterval(t)
+  }, [Boolean(state.breakTimer)])
+
+  const breakHandlers = {
+    onBreakStart: (lengthMin) =>
+      update({
+        breakTimer: {
+          startedAt: new Date().toISOString(),
+          lengthMin,
+          until: new Date(Date.now() + lengthMin * 60000).toISOString(),
+        },
+      }),
+    onBreakExtend: () =>
+      setState((s) =>
+        s.breakTimer
+          ? {
+              ...s,
+              breakTimer: {
+                ...s.breakTimer,
+                until: new Date(
+                  Math.max(new Date(s.breakTimer.until).getTime(), Date.now()) + 5 * 60000
+                ).toISOString(),
+              },
+            }
+          : s
+      ),
+    onBreakEnd: () => update({ breakTimer: null }),
+  }
 
   const update = (patch) => setState((s) => ({ ...s, ...patch }))
 
@@ -195,14 +238,17 @@ export default function App() {
     plan: state.plan && (
       <PlanView
         plan={state.plan}
+        testTime={state.testTime}
         results={state.results}
         timeSpent={state.timeSpent}
+        breakTimer={state.breakTimer}
         countdown={countdown}
         level={state.level || 'novice'}
         onLevelChange={handleLevelChange}
         onStudy={() => update({ screen: 'study' })}
         onRecall={() => update({ screen: 'flashcards' })}
         onTest={() => update({ screen: 'test' })}
+        {...breakHandlers}
       />
     ),
     study: currentVersion && (

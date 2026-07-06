@@ -64,5 +64,38 @@ export function generatePlan(testTimeISO, now = new Date()) {
     suggestedAt: addMin(now, Math.round((workMin * (i + 1)) / (plannedTests + 0.35))).toISOString(),
   }))
 
-  return { startedAt: now.toISOString(), finalReviewAt: finalReviewAt.toISOString(), tests }
+  // Suggested sleep blocks (23:00–07:00) for runways that cross a night.
+  const sleeps = []
+  if (hours > 12) {
+    let bed = new Date(now)
+    bed.setHours(23, 0, 0, 0)
+    if (now.getHours() < 7) bed.setDate(bed.getDate() - 1)
+    while (bed < finalReviewAt) {
+      const wake = new Date(bed)
+      wake.setHours(31, 0, 0, 0) // 07:00 the next morning
+      const from = new Date(Math.max(bed.getTime(), now.getTime()))
+      const to = new Date(Math.min(wake.getTime(), finalReviewAt.getTime()))
+      if (to - from >= 3 * 3600000) {
+        sleeps.push({ from: from.toISOString(), to: to.toISOString() })
+      }
+      bed = new Date(wake)
+      bed.setHours(23, 0, 0, 0)
+    }
+  }
+
+  // Never suggest a practice test mid-sleep — nudge it to the morning after.
+  for (const t of tests) {
+    for (const s of sleeps) {
+      const at = new Date(t.suggestedAt)
+      if (at > new Date(s.from) && at < new Date(s.to)) t.suggestedAt = s.to
+    }
+  }
+
+  return {
+    startedAt: now.toISOString(),
+    testAt: testTime.toISOString(),
+    finalReviewAt: finalReviewAt.toISOString(),
+    tests,
+    sleeps,
+  }
 }

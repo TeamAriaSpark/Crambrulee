@@ -1,8 +1,11 @@
-import { Fragment } from 'react'
+import { useState } from 'react'
 import { TIPS } from '../lib/planner.js'
 import { LEVEL_META } from '../lib/engine.js'
 
-const fmtClock = (iso) =>
+const clock = (iso) =>
+  new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+
+const clockFull = (iso) =>
   new Date(iso).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })
 
 const fmtSpent = (sec) => {
@@ -11,33 +14,47 @@ const fmtSpent = (sec) => {
   return min >= 90 ? `${Math.round(min / 6) / 10} h` : `${min} min`
 }
 
+const tally = (sec) => (sec > 0 ? `${fmtSpent(sec)} so far` : 'not started')
+
 const fmtIn = (iso) => {
   const min = Math.round((new Date(iso) - Date.now()) / 60000)
   if (min <= 0) return 'now'
   if (min < 60) return `in ~${min} min`
-  const h = Math.round(min / 6) / 10
-  return `in ~${h} h`
+  return `in ~${Math.round(min / 6) / 10} h`
 }
 
 export default function PlanView({
   plan,
+  testTime,
   results,
   timeSpent,
+  breakTimer,
   countdown,
   level,
   onLevelChange,
   onStudy,
   onRecall,
   onTest,
+  onBreakStart,
+  onBreakExtend,
+  onBreakEnd,
 }) {
   const tests = plan?.tests || []
+  const sleeps = plan?.sleeps || []
   const taken = Math.min(results.length, tests.length)
   const nextTest = tests[taken] || null
-  const allDone = !nextTest
 
-  // Live mix: real time on the study screen vs flashcards + tests.
+  // Proportional axis: session start → real test time.
+  const axisStart = new Date(plan.startedAt).getTime()
+  const axisEnd = new Date(plan.testAt || testTime).getTime()
+  const span = Math.max(axisEnd - axisStart, 1)
+  const pos = (iso) => Math.min(100, Math.max(0, ((new Date(iso).getTime() - axisStart) / span) * 100))
+  const nowPct = pos(new Date().toISOString())
+
+  // Tallies of real time on each task.
   const studySec = timeSpent?.study || 0
   const activeSec = timeSpent?.active || 0
+  const breakSec = timeSpent?.break || 0
   const totalSec = studySec + activeSec
   const readPct = totalSec > 0 ? Math.round((studySec / totalSec) * 100) : 0
   const verdict =
@@ -46,10 +63,24 @@ export default function PlanView({
       : readPct > 40
         ? 'You’re reading more than the target — switch to flashcards or a test. 🔥'
         : readPct >= 22
-          ? 'Right on target — keep this balance. 👌'
-          : 'Nicely recall-heavy — exactly what the research favors. 💪'
+          ? 'Right on target. 👌'
+          : 'Nicely recall-heavy. 💪'
 
-  const tip = TIPS[(taken * 3 + new Date().getHours()) % TIPS.length]
+  // Break timer state.
+  const [customMin, setCustomMin] = useState(10)
+  const breakRunning = breakTimer && new Date(breakTimer.until) > Date.now()
+  const breakOver = breakTimer && !breakRunning
+  const breakRemaining = breakRunning
+    ? Math.max(0, Math.round((new Date(breakTimer.until) - Date.now()) / 1000))
+    : 0
+  const breakElapsedSec = breakTimer
+    ? Math.round((Date.now() - new Date(breakTimer.startedAt)) / 1000)
+    : 0
+  const tip = breakRunning
+    ? TIPS[Math.floor(breakElapsedSec / 40) % TIPS.length]
+    : TIPS[(taken * 3 + new Date().getHours()) % TIPS.length]
+  const mm = String(Math.floor(breakRemaining / 60))
+  const ss = String(breakRemaining % 60).padStart(2, '0')
 
   return (
     <div className="card">
@@ -57,9 +88,9 @@ export default function PlanView({
         <div>
           <h2>🗺️ Your cram plan</h2>
           <p className="muted">
-            Study and quiz yourself in any order you like — just keep the mix near{' '}
-            <strong>30% reading / 70% recall</strong>, and take the practice tests when they
-            come up.
+            Study and quiz yourself in any order — aim for{' '}
+            <strong>30% reading / 70% recall</strong>, and hit the practice tests when they come
+            up.
           </p>
         </div>
         <div className="head-controls">
@@ -78,78 +109,90 @@ export default function PlanView({
         </div>
       </div>
 
-      <div className="hz-timeline" aria-label="Practice test milestones">
-        {tests.map((t, i) => (
-          <Fragment key={t.id}>
-            <div className={`hz-block ${i === taken ? 'live' : ''} ${i < taken ? 'past' : ''}`}>
-              <span className="hz-block-name">Study block {i + 1}</span>
-              <span className="hz-block-time">
-                {i < taken ? 'done' : i === taken ? 'you are here' : ''}
-              </span>
-            </div>
+      <div className="line-timeline" aria-label="Timeline until your test">
+        <div className="lt-track" />
+        <div className="lt-progress" style={{ width: `${nowPct}%` }} />
+        {sleeps.map((s, i) => {
+          const left = pos(s.from)
+          const width = Math.max(pos(s.to) - left, 3)
+          return (
             <div
-              className={`hz-node ${i < taken ? 'past' : ''}`}
-              title={`Practice test ${t.n} — suggested ${fmtClock(t.suggestedAt)}`}
+              key={i}
+              className="lt-sleep"
+              style={{ left: `${left}%`, width: `${width}%` }}
+              title={`Suggested sleep · ${clockFull(s.from)} – ${clock(s.to)}`}
             >
-              {i < taken ? '✓' : '🔥'}
+              💤
             </div>
-          </Fragment>
+          )
+        })}
+        {tests.map((t, i) => (
+          <div
+            key={t.id}
+            className={`lt-marker ${i < taken ? 'past' : ''} ${i === taken ? 'next' : ''}`}
+            style={{ left: `${pos(t.suggestedAt)}%` }}
+            title={`Practice test ${t.n} — suggested ${clockFull(t.suggestedAt)}`}
+          >
+            <span className="lt-icon">{i < taken ? '✓' : '🔥'}</span>
+            <span className="lt-label">{clock(t.suggestedAt)}</span>
+          </div>
         ))}
-        <div className="hz-node finish" title={`Final review · ${fmtClock(plan.finalReviewAt)}`}>
-          🏁
+        <div className="lt-marker end" style={{ left: '100%' }} title={`Test time · ${clockFull(plan.testAt || testTime)}`}>
+          <span className="lt-icon">🎓</span>
+          <span className="lt-label">{clock(plan.testAt || testTime)}</span>
+        </div>
+        <div className="lt-now" style={{ left: `${nowPct}%` }}>
+          <span className="lt-now-dot" />
+          <span className="lt-now-label">now</span>
         </div>
       </div>
 
-      <div className="mix-stats">
-        {totalSec === 0 ? (
-          <p className="muted small mix-caption">
-            ⏱️ Your time tallies here as you go — target mix:{' '}
-            <strong>30% reading · 70% recall + tests</strong>.
-          </p>
-        ) : (
-          <>
-            <div className="stat-row">
-              <div className="stat">
-                <span className="stat-label">📖 Reading</span>
-                <span className="stat-value">{fmtSpent(studySec)}</span>
-                <span className="stat-pct">{readPct}%</span>
-              </div>
-              <div className="stat">
-                <span className="stat-label">🧠🔥 Recall + tests</span>
-                <span className="stat-value">{fmtSpent(activeSec)}</span>
-                <span className="stat-pct">{100 - readPct}%</span>
-              </div>
-              <div className="stat stat-target">
-                <span className="stat-label">🎯 Target</span>
-                <span className="stat-value">30% · 70%</span>
-              </div>
-            </div>
-            {verdict && <p className="muted small mix-caption">{verdict}</p>}
-          </>
-        )}
-      </div>
+      {verdict && (
+        <p className="muted small mix-caption">
+          Mix so far: <strong>{readPct}% reading · {100 - readPct}% recall + tests</strong>{' '}
+          (target 30 · 70). {verdict}
+        </p>
+      )}
 
       <div className="action-row">
         <button className="action-card read" onClick={onStudy}>
           <span className="action-emoji">📖</span>
           <span className="action-title">Study</span>
           <span className="action-sub">Summary &amp; cheat sheet</span>
-          <span className="cat-chip read">reading</span>
+          <span className="action-tally">{tally(studySec)}</span>
         </button>
         <button className="action-card recall" onClick={onRecall}>
           <span className="action-emoji">🧠</span>
           <span className="action-title">Active recall</span>
           <span className="action-sub">Flashcards, notes closed</span>
-          <span className="cat-chip recall">active recall</span>
+          <span className="action-tally hot-tally">{tally(activeSec)}</span>
         </button>
       </div>
 
       <div className="test-suggest">
-        {allDone ? (
+        {nextTest ? (
           <>
-            <div>
-              <div className="milestone-eyebrow">🏁 All tests taken</div>
-              <strong>Final review at {fmtClock(plan.finalReviewAt)}</strong>
+            <div className="suggest-main">
+              <div className="milestone-eyebrow">
+                🔥 Practice test {nextTest.n} of {tests.length} — suggested at
+              </div>
+              <div className="suggest-time">
+                {clock(nextTest.suggestedAt)}
+                <span className="suggest-in">{fmtIn(nextTest.suggestedAt)}</span>
+              </div>
+              <p className="muted small" style={{ margin: '2px 0 0' }}>
+                Afterwards your materials are rebuilt around what you missed.
+              </p>
+            </div>
+            <button className="btn" onClick={onTest}>
+              Take it {fmtIn(nextTest.suggestedAt) === 'now' ? 'now ' : ''}🔥
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="suggest-main">
+              <div className="milestone-eyebrow">🏁 All tests taken — final review at</div>
+              <div className="suggest-time">{clock(plan.finalReviewAt)}</div>
               <p className="muted small" style={{ margin: '2px 0 0' }}>
                 One calm pass over the cheat sheet, then step away — you’re ready.
               </p>
@@ -158,36 +201,72 @@ export default function PlanView({
               Retake a test 🔥
             </button>
           </>
-        ) : (
-          <>
-            <div>
-              <div className="milestone-eyebrow">🔥 Next milestone</div>
-              <strong>
-                Practice test {nextTest.n} of {tests.length}
-              </strong>
-              <p className="muted small" style={{ margin: '2px 0 0' }}>
-                Suggested around {fmtClock(nextTest.suggestedAt)} ({fmtIn(nextTest.suggestedAt)})
-                — afterwards your materials are rebuilt around what you missed.
-              </p>
-            </div>
-            <button className="btn" onClick={onTest}>
-              Take it {fmtIn(nextTest.suggestedAt) === 'now' ? 'now ' : ''}🔥
-            </button>
-          </>
         )}
       </div>
 
-      <div className="snack-bar" style={{ marginTop: 14, maxWidth: 'none' }}>
-        <span className="snack-emoji">{tip.emoji}</span>
-        <div>
-          <strong>{tip.tip}</strong>
-          <p>{tip.why}</p>
+      <div className={`break-card ${breakRunning ? 'running' : ''}`}>
+        <div className="break-head">
+          <strong>☕ Break timer</strong>
+          <span className="action-tally">{tally(breakSec)}</span>
+        </div>
+
+        {!breakTimer && (
+          <div className="break-controls">
+            {[5, 10, 15].map((m) => (
+              <button key={m} className="preset-chip" onClick={() => onBreakStart(m)}>
+                {m} min
+              </button>
+            ))}
+            <span className="break-custom">
+              <input
+                type="number"
+                min="1"
+                max="120"
+                value={customMin}
+                onChange={(e) => setCustomMin(Math.max(1, Math.min(120, Number(e.target.value) || 1)))}
+                aria-label="Custom break minutes"
+              />
+              <button className="preset-chip" onClick={() => onBreakStart(customMin)}>
+                Start {customMin} min
+              </button>
+            </span>
+          </div>
+        )}
+
+        {breakRunning && (
+          <div className="break-running">
+            <span className="break-count">
+              {mm}:{ss}
+            </span>
+            <button className="btn ghost small-btn" onClick={onBreakExtend}>
+              +5 min
+            </button>
+            <button className="btn ghost small-btn" onClick={onBreakEnd}>
+              End break
+            </button>
+          </div>
+        )}
+
+        {breakOver && (
+          <div className="break-running">
+            <strong>⏰ Break’s over — back to it!</strong>
+            <button className="btn small-btn" onClick={onBreakEnd}>
+              Back to it 🔥
+            </button>
+          </div>
+        )}
+
+        <div className="break-tip">
+          <span>{tip.emoji}</span>
+          <span>
+            <strong>{tip.tip}.</strong> <span className="muted">{tip.why}</span>
+          </span>
         </div>
       </div>
 
       <p className="muted small" style={{ marginTop: 16 }}>
         {LEVEL_META[level]?.emoji} Level: <strong>{level}</strong> — score 80%+ on a practice
-        test to level up.
+        test to level up. 🔥 {taken} of {tests.length} tests taken.
       </p>
     </div>
   )
