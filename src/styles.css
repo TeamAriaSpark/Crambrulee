@@ -102,7 +102,10 @@ h3 { margin: 0 0 4px; font-size: 1.05rem; }
 .step-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 
 /* header controls: countdown + difficulty level */
-.head-controls { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.session-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.session-head > div:first-child { flex: 1; min-width: 260px; max-width: 560px; }
+.head-controls { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; margin-left: auto; }
+.level-note { white-space: nowrap; }
 .level-select { display: flex; align-items: center; gap: 6px; }
 .level-select select {
   font: inherit; font-size: 0.88rem; font-weight: 700; color: var(--caramel-deep);
@@ -320,31 +323,27 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
   white-space: nowrap;
 }
 
-/* break timer */
+/* break timer — one compact strip */
 .break-card {
-  margin-top: 14px; border: 1.5px dashed var(--step-break); border-radius: 16px;
-  padding: 14px 18px; background: linear-gradient(135deg, #f2f7ec, #e9f2e0);
+  margin-top: 12px; border: 1.5px dashed var(--step-break); border-radius: 14px;
+  padding: 10px 14px; background: linear-gradient(135deg, #f2f7ec, #e9f2e0);
 }
 .break-card.running { border-style: solid; border-width: 2px; }
-.break-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.break-benefit {
-  margin: 8px 0 0; font-size: 0.86rem; font-weight: 600; color: #3e5e33;
-  background: rgba(255, 255, 255, 0.55); border-left: 4px solid var(--step-break);
-  border-radius: 8px; padding: 7px 12px;
-}
-.break-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-.break-custom { display: inline-flex; align-items: center; gap: 6px; }
+.break-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.break-line .preset-chip { padding: 5px 13px; font-size: 0.82rem; }
+.break-tally { margin-left: auto; }
+.break-custom { display: inline-flex; align-items: center; gap: 5px; }
 .break-custom input {
-  width: 64px; font: inherit; font-weight: 700; text-align: center;
-  border: 1.5px solid var(--line); border-radius: 999px; padding: 6px 8px;
+  width: 52px; font: inherit; font-size: 0.85rem; font-weight: 700; text-align: center;
+  border: 1.5px solid var(--line); border-radius: 999px; padding: 5px 6px;
   background: var(--card);
 }
-.break-running { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
 .break-count {
-  font-size: 2rem; font-weight: 800; color: #3e5e33;
+  font-size: 1.4rem; font-weight: 800; color: #3e5e33;
   font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
 }
-.break-tip { display: flex; gap: 8px; margin-top: 10px; font-size: 0.84rem; align-items: baseline; }
+.break-over-msg { color: var(--bad); }
+.break-tip { margin: 6px 0 0; }
 
 
 /* reading vs active-recall category chips */
@@ -361,7 +360,6 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 /* break + brain-food suggestion attached to a cook cycle */
 
 /* ---------- study / materials ---------- */
-.session-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .topic-block { margin-top: 18px; padding: 16px 18px; border: 1.5px solid var(--line); border-radius: 14px; background: #fffdf8; }
 .topic-block.weak { border-color: var(--step-test); background: #fff4ee; }
 .topic-block ul { margin: 8px 0 0; padding-left: 20px; }

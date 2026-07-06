@@ -114,7 +114,7 @@ export default function PlanView({
             </select>
           </label>
           <span className="muted small level-note">
-            score 80%+ on a test to level up · {taken} of {tests.length} taken
+            score 80%+ to level up · {taken}/{tests.length} tests taken
           </span>
         </div>
       </div>
@@ -238,75 +238,67 @@ export default function PlanView({
         )}
       </div>
 
-      <div className={`break-card ${breakRunning ? 'running' : ''}`}>
-        <div className="break-head">
-          <strong>☕ Break timer</strong>
-          <span className="action-tally">{tally(breakSec)}</span>
-          <span className="muted small">
-            suggested: ~{SUGGESTED_BREAK} min for every hour of studying
-          </span>
+      <div
+        className={`break-card ${breakRunning ? 'running' : ''}`}
+        title={`Rest is when your brain consolidates what you just learned. Suggested: ~${SUGGESTED_BREAK} min for every hour of studying.`}
+      >
+        <div className="break-line">
+          <strong>☕ Break</strong>
+          {!breakTimer && (
+            <>
+              {[5, 10, 15].map((m) => (
+                <button
+                  key={m}
+                  className={`preset-chip ${m === SUGGESTED_BREAK ? 'selected' : ''}`}
+                  onClick={() => onBreakStart(m)}
+                >
+                  {m}m{m === SUGGESTED_BREAK ? ' ★' : ''}
+                </button>
+              ))}
+              <span className="break-custom">
+                <input
+                  type="number"
+                  min="1"
+                  max="120"
+                  value={customMin}
+                  onChange={(e) =>
+                    setCustomMin(Math.max(1, Math.min(120, Number(e.target.value) || 1)))
+                  }
+                  aria-label="Custom break minutes"
+                />
+                <button className="preset-chip" onClick={() => onBreakStart(customMin)}>
+                  Start
+                </button>
+              </span>
+            </>
+          )}
+          {breakRunning && (
+            <>
+              <span className="break-count">
+                {mm}:{ss}
+              </span>
+              <button className="preset-chip" onClick={onBreakExtend}>
+                +5m
+              </button>
+              <button className="preset-chip" onClick={onBreakEnd}>
+                End
+              </button>
+            </>
+          )}
+          {breakOver && (
+            <>
+              <strong className="break-over-msg">⏰ Break’s over!</strong>
+              <button className="btn small-btn" onClick={onBreakEnd}>
+                Back to it 🔥
+              </button>
+            </>
+          )}
+          <span className="action-tally break-tally">{tally(breakSec)}</span>
         </div>
-        <p className="break-benefit">
-          Breaks aren’t slacking — resting between sessions is when your brain consolidates
-          what you just learned, so it sticks for the test.
+        <p className="break-tip small">
+          {tip.emoji} <strong>{tip.tip}.</strong>{' '}
+          <span className="muted">{tip.why}</span>
         </p>
-
-        {!breakTimer && (
-          <div className="break-controls">
-            {[5, 10, 15].map((m) => (
-              <button
-                key={m}
-                className={`preset-chip ${m === SUGGESTED_BREAK ? 'selected' : ''}`}
-                onClick={() => onBreakStart(m)}
-              >
-                {m} min{m === SUGGESTED_BREAK ? ' ★' : ''}
-              </button>
-            ))}
-            <span className="break-custom">
-              <input
-                type="number"
-                min="1"
-                max="120"
-                value={customMin}
-                onChange={(e) => setCustomMin(Math.max(1, Math.min(120, Number(e.target.value) || 1)))}
-                aria-label="Custom break minutes"
-              />
-              <button className="preset-chip" onClick={() => onBreakStart(customMin)}>
-                Start {customMin} min
-              </button>
-            </span>
-          </div>
-        )}
-
-        {breakRunning && (
-          <div className="break-running">
-            <span className="break-count">
-              {mm}:{ss}
-            </span>
-            <button className="btn ghost small-btn" onClick={onBreakExtend}>
-              +5 min
-            </button>
-            <button className="btn ghost small-btn" onClick={onBreakEnd}>
-              End break
-            </button>
-          </div>
-        )}
-
-        {breakOver && (
-          <div className="break-running">
-            <strong>⏰ Break’s over — back to it!</strong>
-            <button className="btn small-btn" onClick={onBreakEnd}>
-              Back to it 🔥
-            </button>
-          </div>
-        )}
-
-        <div className="break-tip">
-          <span>{tip.emoji}</span>
-          <span>
-            <strong>{tip.tip}.</strong> <span className="muted">{tip.why}</span>
-          </span>
-        </div>
       </div>
 
     </div>
