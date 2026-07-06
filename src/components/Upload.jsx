@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { getApiKey, setApiKey } from '../lib/ai.js'
+import { extractPdfText } from '../lib/pdf.js'
 
 const SAMPLE = `Photosynthesis
 Photosynthesis is the process plants use to convert light energy into chemical energy stored in glucose. It takes place in the chloroplasts, which contain the green pigment chlorophyll.
@@ -18,6 +19,8 @@ export default function Upload({ onDone }) {
   const [over, setOver] = useState(false)
   const [keyInput, setKeyInput] = useState(getApiKey())
   const [keySaved, setKeySaved] = useState(Boolean(getApiKey()))
+  const [reading, setReading] = useState(false)
+  const [fileError, setFileError] = useState(null)
   const inputRef = useRef()
 
   const saveKey = () => {
@@ -26,13 +29,26 @@ export default function Upload({ onDone }) {
   }
 
   const readFiles = async (files) => {
+    setFileError(null)
+    setReading(true)
     const texts = []
     const names = []
+    const problems = []
     for (const file of files) {
-      if (file.size > 5 * 1024 * 1024) continue
-      names.push(file.name)
-      texts.push(await file.text())
+      if (file.size > 25 * 1024 * 1024) {
+        problems.push(`“${file.name}” is over 25 MB — too big for the pot.`)
+        continue
+      }
+      const isPdf = /\.pdf$/i.test(file.name) || file.type === 'application/pdf'
+      try {
+        texts.push(isPdf ? await extractPdfText(file) : await file.text())
+        names.push(file.name)
+      } catch (err) {
+        problems.push(err?.message || `Couldn’t read “${file.name}”.`)
+      }
     }
+    setReading(false)
+    if (problems.length) setFileError(problems.join(' '))
     if (texts.length) {
       setFileName(names.join(', '))
       setText((t) => (t ? t + '\n\n' : '') + texts.join('\n\n'))
@@ -68,15 +84,17 @@ export default function Upload({ onDone }) {
         <input
           ref={inputRef}
           type="file"
-          accept=".txt,.md,.markdown,.text,.csv"
+          accept=".txt,.md,.markdown,.text,.csv,.pdf,application/pdf"
           multiple
           onChange={(e) => readFiles([...e.target.files])}
         />
         <strong>📚 Toss in your ingredients</strong>
         <p className="muted small" style={{ margin: '6px 0 0' }}>
-          Drag &amp; drop your notes (.txt or .md), or click to browse
+          Drag &amp; drop your notes (.pdf, .txt, or .md), or click to browse
         </p>
-        {fileName && <div className="file-chip">📄 {fileName}</div>}
+        {reading && <div className="file-chip">⏳ Reading your file…</div>}
+        {!reading && fileName && <div className="file-chip">📄 {fileName}</div>}
+        {fileError && <p className="cook-note">⚠️ {fileError}</p>}
       </div>
 
       <textarea

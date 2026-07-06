@@ -6,7 +6,7 @@ Our special sauce is science-backed: **active recall beats rereading**. Retrieva
 
 ## How it works
 
-1. **Toss in your ingredients** — upload or paste your study materials (.txt / .md).
+1. **Toss in your ingredients** — upload or paste your study materials (.pdf / .txt / .md). PDFs are parsed right in your browser with pdf.js; scanned image-only PDFs are detected and flagged (we need selectable text).
 2. **Set the timer** — tell us how long until your test (usually under 72 hours).
 3. **We cook up your cram plan** — a timeline optimized for your window, with practice tests as milestones.
 4. **Follow the recipe** — simple repeating cycles of:
