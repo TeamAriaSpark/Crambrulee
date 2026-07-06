@@ -11,7 +11,7 @@ import { generateMaterials } from './lib/engine.js'
 import { generateMaterialsAI, hasApiKey } from './lib/ai.js'
 import { generatePlan } from './lib/planner.js'
 
-const STORAGE_KEY = 'cram-brulee-v1'
+const STORAGE_KEY = 'cram-brulee-v2' // v2: grouped cook-cycle plan items
 
 const emptyState = {
   screen: 'upload',

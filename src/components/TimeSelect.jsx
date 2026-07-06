@@ -11,6 +11,15 @@ const PRESETS = [
 export default function TimeSelect({ onDone, onBack }) {
   const [hours, setHours] = useState(24)
 
+  const testDate = new Date(Date.now() + hours * 3600000)
+  const testDateLabel = testDate.toLocaleString([], {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+
   const heat =
     hours <= 6
       ? { label: 'HIGH HEAT 🔥🔥🔥', note: 'Short runway — tight cycles, no fluff, one hard practice test.' }
@@ -49,6 +58,10 @@ export default function TimeSelect({ onDone, onBack }) {
         />
         <span className="slider-value">{hours}h</span>
       </div>
+
+      <p className="target-time">
+        ⏰ That puts your test at <strong>{testDateLabel}</strong>
+      </p>
 
       <p>
         <span className="pill hot">{heat.label}</span>{' '}

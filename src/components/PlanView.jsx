@@ -23,19 +23,13 @@ export default function PlanView({ plan, doneSteps, results, countdown, onGo, on
         <div>
           <h2>🗺️ Your cram plan</h2>
           <p className="muted">
-            The recipe is simple: <strong>study → active recall → practice test → repeat</strong>,
-            with breaks, sleep, and brain food folded in.
+            The recipe repeats until test time:{' '}
+            <strong>🍳 study → 🧠 active recall → ☕ break</strong>, with{' '}
+            <strong>🔥 practice tests</strong> as the milestones that refry your materials
+            around your weak spots.
           </p>
         </div>
         {countdown && <span className="pill hot">⏲️ {countdown.text} left</span>}
-      </div>
-
-      <div className="legend">
-        {Object.entries(TYPE_META).map(([key, meta]) => (
-          <span key={key}>
-            <i style={{ background: meta.color }} /> {meta.emoji} {meta.label}
-          </span>
-        ))}
       </div>
 
       <div className="timeline">
@@ -43,40 +37,93 @@ export default function PlanView({ plan, doneSteps, results, countdown, onGo, on
           const meta = TYPE_META[item.type]
           const done = doneSteps.includes(item.id)
           const isCurrent = idx === currentIdx
-          const actionable = ['study', 'recall', 'test'].includes(item.type)
+          const rowClass = `tl-item ${item.type === 'test' ? 'milestone' : ''} ${done ? 'done' : ''} ${isCurrent ? 'current' : ''}`
+
+          if (item.type === 'test') {
+            return (
+              <div key={item.id} className={rowClass} style={{ '--dot': meta.color }}>
+                <div className="milestone-eyebrow">🔥 Milestone</div>
+                <div className="tl-time">
+                  {fmtTime(item.start)} · {item.durationMin} min
+                </div>
+                <div className="tl-title">
+                  Practice test {item.n} of {testCount}
+                </div>
+                <div className="tl-detail">{item.detail}</div>
+                <div className="tl-actions">
+                  <button className="btn small-btn" onClick={() => onGo({ id: item.id, type: 'test' })}>
+                    {isCurrent ? 'Take the test 🔥' : done ? 'Retake it 🔥' : 'Take it early 🔥'}
+                  </button>
+                  {!done && (
+                    <button className="btn ghost small-btn" onClick={() => onToggleDone(item)}>
+                      Mark done ✓
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          }
+
+          if (item.type === 'cycle') {
+            return (
+              <div key={item.id} className={rowClass} style={{ '--dot': meta.color }}>
+                <div className="tl-time">
+                  {fmtTime(item.start)} · {item.durationMin} min
+                  {isCurrent && <span className="pill" style={{ marginLeft: 8 }}>you are here</span>}
+                </div>
+                <div className="tl-title">🍳 Cook cycle {item.n}</div>
+                <div className="tl-detail">
+                  Study the summary &amp; cheat sheet for {item.study} min, then flip flashcards
+                  for {item.recall} min — notes closed.
+                </div>
+                {item.break && (
+                  <div className="snack-bar">
+                    <span className="snack-emoji">{item.break.emoji}</span>
+                    <div>
+                      <strong>
+                        {item.break.durationMin}-min break: {item.break.tip}
+                      </strong>
+                      <p>{item.break.why}</p>
+                    </div>
+                  </div>
+                )}
+                {(isCurrent || !done) && (
+                  <div className="tl-actions">
+                    <button
+                      className={`btn ${isCurrent ? '' : 'ghost'} small-btn`}
+                      onClick={() => onGo({ id: item.id, type: 'study' })}
+                    >
+                      Start studying 🍳
+                    </button>
+                    <button
+                      className="btn ghost small-btn"
+                      onClick={() => onGo({ id: item.id, type: 'recall' })}
+                    >
+                      Flashcards 🧠
+                    </button>
+                    {isCurrent && (
+                      <button className="btn ghost small-btn" onClick={() => onToggleDone(item)}>
+                        Mark done ✓
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          }
+
+          // sleep + final glaze
           return (
-            <div
-              key={item.id}
-              className={`tl-item ${item.type === 'test' ? 'milestone' : ''} ${done ? 'done' : ''} ${isCurrent ? 'current' : ''}`}
-              style={{ '--dot': meta.color }}
-            >
+            <div key={item.id} className={rowClass} style={{ '--dot': meta.color }}>
               <div className="tl-time">
-                {fmtTime(item.start)} · {item.durationMin} min
+                {fmtTime(item.start)} ·{' '}
+                {item.durationMin >= 90
+                  ? `${Math.round(item.durationMin / 6) / 10} h`
+                  : `${item.durationMin} min`}
                 {isCurrent && <span className="pill" style={{ marginLeft: 8 }}>you are here</span>}
               </div>
               <div className="tl-title">{item.title}</div>
               <div className="tl-detail">{item.detail}</div>
-              {isCurrent && (
-                <div className="tl-actions">
-                  {actionable && (
-                    <button className="btn small-btn" onClick={() => onGo(item)}>
-                      {item.type === 'study' && 'Start studying 🍳'}
-                      {item.type === 'recall' && 'Flip flashcards 🧠'}
-                      {item.type === 'test' && 'Take practice test 🔥'}
-                    </button>
-                  )}
-                  <button className="btn ghost small-btn" onClick={() => onToggleDone(item)}>
-                    Mark done ✓
-                  </button>
-                </div>
-              )}
-              {!isCurrent && !done && actionable && (
-                <div className="tl-actions">
-                  <button className="btn ghost small-btn" onClick={() => onGo(item)}>
-                    Jump in early →
-                  </button>
-                </div>
-              )}
             </div>
           )
         })}

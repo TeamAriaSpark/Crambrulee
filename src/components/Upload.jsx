@@ -62,10 +62,20 @@ export default function Upload({ onDone }) {
       <span className="flan-big">🍮</span>
       <h2>Test coming up? Let’s get cooking.</h2>
       <p className="muted sauce">
-        Drop in your notes and we’ll cook up a <strong>cram plan</strong> built on our special
-        sauce: <strong>active recall</strong>. Science says testing yourself beats rereading —
-        so that’s exactly what we’ll have you do.
+        Drop in your notes and we’ll cook up a <strong>cram plan</strong> sized to the hours you
+        have left.
       </p>
+
+      <div className="science-callout">
+        <span className="eyebrow">🔬 The science · our special sauce</span>
+        <p>
+          <strong>Rereading your notes feels productive — that’s the trap.</strong> Most students
+          get a false sense of security from rereading. Studies show <strong>active recall</strong> —
+          pulling answers <em>out</em> of your brain instead of pouring them back in — is the most
+          effective way to study. cram brûlée guides you through active recall exercises, so you
+          learn fast.
+        </p>
+      </div>
 
       <div
         className={`dropzone ${over ? 'over' : ''}`}
