@@ -10,7 +10,21 @@ const fmtTime = (iso) =>
 const fmtDuration = (min) =>
   min >= 90 ? `${Math.round(min / 6) / 10} h` : `${min} min`
 
-export default function PlanView({ plan, doneSteps, results, countdown, onGo, onToggleDone }) {
+const fmtSpent = (sec) => {
+  if (sec < 60) return '<1 min'
+  const min = Math.round(sec / 60)
+  return min >= 90 ? `${Math.round(min / 6) / 10} h` : `${min} min`
+}
+
+export default function PlanView({
+  plan,
+  doneSteps,
+  results,
+  timeSpent,
+  countdown,
+  onGo,
+  onToggleDone,
+}) {
   const now = Date.now()
   const currentIdx = plan.findIndex(
     (item) =>
@@ -22,13 +36,19 @@ export default function PlanView({ plan, doneSteps, results, countdown, onGo, on
     .filter((p) => p.kind === 'test').length
   const takenTests = results.length
 
-  let studyMin = 0
-  let activeMin = 0
-  for (const part of plan.flatMap((i) => i.parts || [])) {
-    if (part.kind === 'study') studyMin += part.durationMin
-    if (part.kind === 'recall' || part.kind === 'test') activeMin += part.durationMin
-  }
-  const readPct = Math.round((studyMin / Math.max(studyMin + activeMin, 1)) * 100)
+  // Live mix: real seconds spent on the study screen vs flashcards + tests.
+  const studySec = timeSpent?.study || 0
+  const activeSec = timeSpent?.active || 0
+  const totalSec = studySec + activeSec
+  const readPct = totalSec > 0 ? Math.round((studySec / totalSec) * 100) : 0
+  const enoughData = totalSec >= 120
+  const verdict = !enoughData
+    ? null
+    : readPct > 40
+      ? 'Heavy on the rereading — close the notes and flip some flashcards. 🔥'
+      : readPct >= 22
+        ? 'Perfect mix, chef. 👨‍🍳💋'
+        : 'Extra crispy — all heat, no sogginess. Keep it up. 🔥'
 
   return (
     <div className="card">
@@ -45,18 +65,37 @@ export default function PlanView({ plan, doneSteps, results, countdown, onGo, on
         {countdown && <span className="pill hot">⏲️ {countdown.text} left</span>}
       </div>
 
-      <div className="mix-bar" title="A century of research: retrieval beats rereading. We mix your hours accordingly.">
+      <div
+        className="mix-bar"
+        title="Tracks the time you actually spend on each screen. Target: ~30% reading, ~70% recall + tests."
+      >
         <div className="mix-track">
-          <div className="mix-read" style={{ width: `${readPct}%` }}>
-            📖 {readPct}%
-          </div>
-          <div className="mix-active" style={{ width: `${100 - readPct}%` }}>
-            🧠🔥 {100 - readPct}% active recall + practice tests
-          </div>
+          {totalSec === 0 ? (
+            <div className="mix-empty">
+              ⏱️ Your real mix tracks here as you cook — target: 📖 30% / 🧠🔥 70%
+            </div>
+          ) : (
+            <>
+              <div className="mix-read" style={{ width: `${Math.max(readPct, 8)}%` }}>
+                📖 {readPct}%
+              </div>
+              <div className="mix-active" style={{ width: `${Math.min(100 - readPct, 92)}%` }}>
+                🧠🔥 {100 - readPct}%
+              </div>
+            </>
+          )}
+          <div className="mix-target" title="30% reading target" />
         </div>
         <p className="muted small mix-caption">
-          Your hours, mixed to the science-backed ratio — roughly 30% reading, 70% pulling it
-          back out.
+          {totalSec === 0 ? (
+            <>Time on the study screen counts as reading; flashcards and practice tests count as recall.</>
+          ) : (
+            <>
+              So far: <strong>{fmtSpent(studySec)}</strong> reading ·{' '}
+              <strong>{fmtSpent(activeSec)}</strong> recall + tests.
+              {verdict && <> {verdict}</>}
+            </>
+          )}
         </p>
       </div>
 

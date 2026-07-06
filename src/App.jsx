@@ -23,6 +23,7 @@ const emptyState = {
   versions: [], // generated materials, newest last
   activeVersion: 0, // index into versions being viewed
   results: [], // { versionId, score, total, byTopic, weakTopics, at }
+  timeSpent: { study: 0, active: 0 }, // seconds actually spent on each kind of screen
 }
 
 function loadState() {
@@ -60,6 +61,26 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   }, [state])
+
+  // Track real time on task: study screen counts as reading, flashcards and
+  // practice tests count as active recall. Only ticks while the tab is visible.
+  useEffect(() => {
+    const bucket = { study: 'study', flashcards: 'active', test: 'active' }[state.screen]
+    if (!bucket) return
+    const TICK = 5
+    const t = setInterval(() => {
+      if (document.hidden) return
+      setState((s) => ({
+        ...s,
+        timeSpent: {
+          ...emptyState.timeSpent,
+          ...s.timeSpent,
+          [bucket]: (s.timeSpent?.[bucket] || 0) + TICK,
+        },
+      }))
+    }, TICK * 1000)
+    return () => clearInterval(t)
+  }, [state.screen])
 
   const update = (patch) => setState((s) => ({ ...s, ...patch }))
 
@@ -170,6 +191,7 @@ export default function App() {
         plan={state.plan}
         doneSteps={state.doneSteps}
         results={state.results}
+        timeSpent={state.timeSpent}
         countdown={countdown}
         onGo={(step) => {
           const target = { study: 'study', recall: 'flashcards', test: 'test' }[step.type]
