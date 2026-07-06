@@ -263,18 +263,38 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 }
 .part-time.hot-time { color: var(--step-test); }
 
-/* practice tests are THE milestones — a standout block inside the cycle */
-.part-milestone {
+/* reading vs active-recall category highlighting */
+.cat-chip {
+  font-size: 0.66rem; font-weight: 800; letter-spacing: 0.05em;
+  text-transform: uppercase; white-space: nowrap;
+  border-radius: 999px; padding: 2px 9px;
+}
+.cat-chip.read { background: var(--custard); color: var(--caramel-deep); }
+.cat-chip.recall { background: #ffe3d6; color: var(--bad); }
+.part-row.read { background: rgba(255, 237, 194, 0.45); border-left: 4px solid var(--step-study); }
+.part-row.recall { background: #fff0e6; border-left: 4px solid var(--step-test); }
+.cycle-card.current .part-row.read { background: rgba(255, 253, 248, 0.8); }
+.cycle-card.current .part-row.recall { background: #fff2e8; }
+
+/* practice tests are THE milestones — standalone cards on the timeline */
+.tl-item.milestone {
   background: linear-gradient(135deg, #fff4ee, #ffe4cf);
   border: 2px solid var(--step-test);
-  border-radius: 12px;
-  padding: 10px 12px;
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin: 12px 0 12px -4px;
+  box-shadow: 0 6px 18px rgba(201, 79, 46, 0.16);
 }
-.part-milestone .part-row { background: transparent; padding: 0; }
+.tl-item.milestone::before {
+  width: 20px; height: 20px; left: -30px; top: 18px;
+  box-shadow: 0 0 0 2px var(--dot), 0 0 0 7px rgba(201, 79, 46, 0.18);
+}
+.tl-item.milestone .tl-title { font-size: 1.1rem; color: #8a3417; }
 .milestone-eyebrow {
   font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--step-test); margin-bottom: 4px;
+  text-transform: uppercase; color: var(--step-test); margin-bottom: 2px;
 }
+.break-row .snack-bar { margin-top: 4px; }
 
 /* break + brain-food suggestion attached to a cook cycle */
 .snack-bar {

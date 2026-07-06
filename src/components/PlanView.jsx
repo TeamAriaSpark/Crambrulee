@@ -16,6 +16,9 @@ const fmtSpent = (sec) => {
   return min >= 90 ? `${Math.round(min / 6) / 10} h` : `${min} min`
 }
 
+const ReadChip = () => <span className="cat-chip read">📖 reading</span>
+const RecallChip = () => <span className="cat-chip recall">🧠 active recall</span>
+
 export default function PlanView({
   plan,
   doneSteps,
@@ -31,9 +34,7 @@ export default function PlanView({
       !doneSteps.includes(item.id) &&
       new Date(item.start).getTime() + item.durationMin * 60000 > now
   )
-  const totalTests = plan
-    .flatMap((i) => i.parts || [])
-    .filter((p) => p.kind === 'test').length
+  const totalTests = plan.filter((i) => i.type === 'test').length
   const takenTests = results.length
 
   // Live mix: real seconds spent on the study screen vs flashcards + tests.
@@ -99,51 +100,35 @@ export default function PlanView({
 
       <div className="timeline">
         {plan.map((item, idx) => {
+          const meta = TYPE_META[item.type]
           const done = doneSteps.includes(item.id)
           const isCurrent = idx === currentIdx
+          const baseClass = `tl-item ${done ? 'done' : ''} ${isCurrent ? 'current' : ''}`
 
-          if (item.type !== 'cycle') {
-            // sleep + final glaze
+          if (item.type === 'cycle') {
             return (
               <div
                 key={item.id}
-                className={`tl-item ${done ? 'done' : ''} ${isCurrent ? 'current' : ''}`}
-                style={{ '--dot': TYPE_META[item.type].color }}
+                className={`${baseClass} cycle-card`}
+                style={{ '--dot': meta.color }}
               >
-                <div className="tl-time">
-                  {fmtTime(item.start)} · {fmtDuration(item.durationMin)}
-                  {isCurrent && <span className="pill" style={{ marginLeft: 8 }}>you are here</span>}
-                </div>
-                <div className="tl-title">{item.title}</div>
-                <div className="tl-detail">{item.detail}</div>
-              </div>
-            )
-          }
-
-          const hasTest = item.parts.some((p) => p.kind === 'test')
-          return (
-            <div
-              key={item.id}
-              className={`tl-item cycle-card ${hasTest ? 'has-milestone' : ''} ${done ? 'done' : ''} ${isCurrent ? 'current' : ''}`}
-              style={{ '--dot': hasTest ? 'var(--step-test)' : TYPE_META.cycle.color }}
-            >
-              <div className="cycle-head">
-                <div>
-                  <div className="tl-time">
-                    {fmtTime(item.start)}
-                    {isCurrent && <span className="pill" style={{ marginLeft: 8 }}>you are here</span>}
+                <div className="cycle-head">
+                  <div>
+                    <div className="tl-time">
+                      {fmtTime(item.start)}
+                      {isCurrent && <span className="pill" style={{ marginLeft: 8 }}>you are here</span>}
+                    </div>
+                    <div className="tl-title">Round {item.n}</div>
                   </div>
-                  <div className="tl-title">Round {item.n}</div>
+                  <div className="cycle-total">{fmtDuration(item.durationMin)}</div>
                 </div>
-                <div className="cycle-total">{fmtDuration(item.durationMin)}</div>
-              </div>
 
-              <div className="cycle-parts">
-                {item.parts.map((part, i) => {
-                  if (part.kind === 'study')
-                    return (
-                      <div className="part-row" key={i}>
-                        <span className="part-label">📖 Study the summary &amp; cheat sheet</span>
+                <div className="cycle-parts">
+                  {item.parts.map((part, i) =>
+                    part.kind === 'study' ? (
+                      <div className="part-row read" key={i}>
+                        <span className="part-label">Study the summary &amp; cheat sheet</span>
+                        <ReadChip />
                         <span className="part-time">{part.durationMin} min</span>
                         <button
                           className="btn ghost small-btn"
@@ -152,11 +137,10 @@ export default function PlanView({
                           Start →
                         </button>
                       </div>
-                    )
-                  if (part.kind === 'recall')
-                    return (
-                      <div className="part-row" key={i}>
-                        <span className="part-label">🧠 Flashcards — answer from memory, notes closed</span>
+                    ) : (
+                      <div className="part-row recall" key={i}>
+                        <span className="part-label">Flashcards — answer from memory, notes closed</span>
+                        <RecallChip />
                         <span className="part-time">{part.durationMin} min</span>
                         <button
                           className="btn ghost small-btn"
@@ -166,47 +150,73 @@ export default function PlanView({
                         </button>
                       </div>
                     )
-                  if (part.kind === 'test')
-                    return (
-                      <div className="part-milestone" key={i}>
-                        <div className="milestone-eyebrow">🔥 Milestone</div>
-                        <div className="part-row">
-                          <span className="part-label">
-                            <strong>Practice test {part.n} of {totalTests}</strong> — simulates
-                            the real thing, then your materials are rebuilt around what you missed
-                          </span>
-                          <span className="part-time hot-time">{part.durationMin} min</span>
-                          <button
-                            className="btn small-btn"
-                            onClick={() => onGo({ id: item.id, type: 'test' })}
-                          >
-                            Take it 🔥
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  // break
-                  return (
-                    <div className="snack-bar" key={i}>
-                      <span className="snack-emoji">{part.emoji}</span>
-                      <div>
-                        <strong>
-                          {part.durationMin}-min break: {part.tip}
-                        </strong>
-                        <p>{part.why}</p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-
-              {!done && (
-                <div className="tl-actions">
-                  <button className="btn ghost small-btn" onClick={() => onToggleDone(item)}>
-                    Mark round done ✓
-                  </button>
+                  )}
                 </div>
-              )}
+
+                {!done && (
+                  <div className="tl-actions">
+                    <button className="btn ghost small-btn" onClick={() => onToggleDone(item)}>
+                      Mark round done ✓
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          }
+
+          if (item.type === 'test') {
+            return (
+              <div key={item.id} className={`${baseClass} milestone`} style={{ '--dot': meta.color }}>
+                <div className="milestone-eyebrow">🔥 Milestone</div>
+                <div className="tl-time">
+                  {fmtTime(item.start)} · {item.durationMin} min
+                  {isCurrent && <span className="pill" style={{ marginLeft: 8 }}>you are here</span>}
+                </div>
+                <div className="tl-title">
+                  Practice test {item.n} of {totalTests} <RecallChip />
+                </div>
+                <div className="tl-detail">{item.detail}</div>
+                <div className="tl-actions">
+                  <button className="btn small-btn" onClick={() => onGo({ id: item.id, type: 'test' })}>
+                    {done ? 'Retake it 🔥' : 'Take the test 🔥'}
+                  </button>
+                  {!done && (
+                    <button className="btn ghost small-btn" onClick={() => onToggleDone(item)}>
+                      Mark done ✓
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          }
+
+          if (item.type === 'break') {
+            return (
+              <div key={item.id} className={`${baseClass} break-row`} style={{ '--dot': meta.color }}>
+                <div className="tl-time">
+                  {fmtTime(item.start)} · {item.durationMin} min
+                  {isCurrent && <span className="pill" style={{ marginLeft: 8 }}>you are here</span>}
+                </div>
+                <div className="snack-bar">
+                  <span className="snack-emoji">{item.emoji}</span>
+                  <div>
+                    <strong>Break: {item.tip}</strong>
+                    <p>{item.why}</p>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+
+          // sleep + final review
+          return (
+            <div key={item.id} className={baseClass} style={{ '--dot': meta.color }}>
+              <div className="tl-time">
+                {fmtTime(item.start)} · {fmtDuration(item.durationMin)}
+                {isCurrent && <span className="pill" style={{ marginLeft: 8 }}>you are here</span>}
+              </div>
+              <div className="tl-title">{item.title}</div>
+              <div className="tl-detail">{item.detail}</div>
             </div>
           )
         })}

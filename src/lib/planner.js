@@ -115,42 +115,55 @@ export function generatePlan(testTimeISO, now = new Date()) {
 
     cycle++
 
-    // A cycle is study → recall, then a practice test when we've crossed the
-    // next evenly-spaced milestone, then a break to recover. All one card.
-    const afterStudyRecall = addMin(cursor, study + recall)
-    const progress = 1 - (endOfWork - afterStudyRecall) / (endOfWork - now)
-    const withTest =
-      testCount < plannedTests &&
-      progress >= (testCount + 1) / (plannedTests + 0.4) &&
-      addMin(afterStudyRecall, testLen) <= endOfWork
-    if (withTest) testCount++
-    const withBreak =
-      addMin(afterStudyRecall, (withTest ? testLen : 0) + brk) <= endOfWork
-    const tipList = cycle % 2 === 0 ? NUTRIENT_TIPS : BREAK_TIPS
-
-    const parts = [
-      { kind: 'study', durationMin: study },
-      { kind: 'recall', durationMin: recall },
-    ]
-    if (withTest) parts.push({ kind: 'test', durationMin: testLen, n: testCount })
-    if (withBreak)
-      parts.push({
-        kind: 'break',
-        durationMin: brk,
-        ...tipList[Math.floor(cycle / 2) % tipList.length],
-      })
-
-    const totalMinCycle = parts.reduce((sum, p) => sum + p.durationMin, 0)
+    // A round is study → recall. Practice tests and breaks follow as their
+    // own timeline items.
     items.push({
       id: makeId(),
       type: 'cycle',
       n: cycle,
       start: cursor.toISOString(),
-      durationMin: totalMinCycle,
-      parts,
+      durationMin: study + recall,
+      parts: [
+        { kind: 'study', durationMin: study },
+        { kind: 'recall', durationMin: recall },
+      ],
     })
-    cursor = addMin(cursor, totalMinCycle)
-    sinceSleepMin += totalMinCycle
+    cursor = addMin(cursor, study + recall)
+    sinceSleepMin += study + recall
+
+    // Practice tests as evenly-spaced milestones through the remaining rounds.
+    const progress = 1 - (endOfWork - cursor) / (endOfWork - now)
+    if (
+      testCount < plannedTests &&
+      progress >= (testCount + 1) / (plannedTests + 0.4) &&
+      addMin(cursor, testLen) <= endOfWork
+    ) {
+      testCount++
+      items.push({
+        id: makeId(),
+        type: 'test',
+        n: testCount,
+        start: cursor.toISOString(),
+        durationMin: testLen,
+        detail:
+          'Simulates the real thing — afterwards your summaries, flashcards, and next test are rebuilt around what you missed.',
+      })
+      cursor = addMin(cursor, testLen)
+      sinceSleepMin += testLen
+    }
+
+    if (addMin(cursor, brk) <= endOfWork) {
+      const tipList = cycle % 2 === 0 ? NUTRIENT_TIPS : BREAK_TIPS
+      items.push({
+        id: makeId(),
+        type: 'break',
+        start: cursor.toISOString(),
+        durationMin: brk,
+        ...tipList[Math.floor(cycle / 2) % tipList.length],
+      })
+      cursor = addMin(cursor, brk)
+      sinceSleepMin += brk
+    }
   }
 
   items.push({
@@ -163,20 +176,18 @@ export function generatePlan(testTimeISO, now = new Date()) {
     durationMin: bufferMin,
   })
 
-  // Guarantee at least one practice test even on tiny runways: tack a quick
-  // one onto the last cycle.
+  // Guarantee at least one practice test even on tiny runways.
   if (testCount === 0) {
-    const lastCycle = [...items].reverse().find((i) => i.type === 'cycle')
-    if (lastCycle) {
-      const quickTest = Math.min(testLen, bufferMin)
-      const breakIdx = lastCycle.parts.findIndex((p) => p.kind === 'break')
-      lastCycle.parts.splice(breakIdx === -1 ? lastCycle.parts.length : breakIdx, 0, {
-        kind: 'test',
-        durationMin: quickTest,
-        n: 1,
-      })
-      lastCycle.durationMin += quickTest
-    }
+    const insertAt = items.findIndex((i) => i.type === 'final')
+    const anchor = items[Math.max(insertAt - 1, 0)]
+    items.splice(insertAt, 0, {
+      id: makeId(),
+      type: 'test',
+      n: 1,
+      start: addMin(new Date(anchor.start), anchor.durationMin).toISOString(),
+      durationMin: Math.min(testLen, bufferMin),
+      detail: 'Even a quick simulated test tells us what to rebuild.',
+    })
   }
 
   return items
@@ -184,6 +195,8 @@ export function generatePlan(testTimeISO, now = new Date()) {
 
 export const TYPE_META = {
   cycle: { color: 'var(--step-study)' },
+  test: { color: 'var(--step-test)' },
+  break: { color: 'var(--step-break)' },
   sleep: { color: 'var(--step-sleep)' },
   final: { color: 'var(--step-final)' },
 }
