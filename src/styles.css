@@ -101,37 +101,23 @@ h3 { margin: 0 0 4px; font-size: 1.05rem; }
 
 .step-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 
-/* the live 30/70 mix tracker on the plan */
-.mix-bar { margin-top: 14px; }
-.mix-track {
-  position: relative;
-  display: flex; height: 34px; border-radius: 999px; overflow: hidden;
-  border: 1.5px solid var(--line); font-size: 0.78rem; font-weight: 800;
-  background: #fffdf8;
+/* the live 30/70 mix tracker on the plan — plain number stats */
+.mix-stats { margin-top: 14px; }
+.stat-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.stat {
+  display: flex; align-items: baseline; gap: 8px;
+  background: #fffdf8; border: 1.5px solid var(--line);
+  border-radius: 12px; padding: 8px 14px;
 }
-.mix-empty {
-  flex: 1; display: flex; align-items: center; justify-content: center;
-  color: var(--cocoa-soft); font-weight: 600; font-size: 0.8rem;
+.stat-label { font-size: 0.8rem; font-weight: 700; color: var(--cocoa-soft); }
+.stat-value { font-weight: 800; font-variant-numeric: tabular-nums; }
+.stat-pct {
+  font-size: 0.8rem; font-weight: 800; color: var(--caramel-deep);
+  background: var(--custard); border-radius: 999px; padding: 1px 9px;
+  font-variant-numeric: tabular-nums;
 }
-.mix-target {
-  position: absolute; left: 30%; top: -2px; bottom: -2px; width: 0;
-  border-left: 2.5px dashed var(--cocoa);
-  opacity: 0.45;
-}
-.mix-read {
-  background: var(--custard); color: var(--caramel-deep);
-  display: flex; align-items: center; justify-content: center;
-  white-space: nowrap; min-width: 64px;
-}
-.mix-active {
-  background: var(--crust); color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  white-space: nowrap; padding: 0 8px;
-}
+.stat-target { border-style: dashed; }
 .mix-caption { margin: 6px 0 0; }
-@media (max-width: 560px) {
-  .mix-active { font-size: 0.68rem; }
-}
 
 /* ---------- upload ---------- */
 .hero { text-align: center; padding: 30px 26px 34px; }

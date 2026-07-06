@@ -66,37 +66,35 @@ export default function PlanView({
       </div>
 
       <div
-        className="mix-bar"
+        className="mix-stats"
         title="Tracks the time you actually spend on each screen. Target: ~30% reading, ~70% recall + tests."
       >
-        <div className="mix-track">
-          {totalSec === 0 ? (
-            <div className="mix-empty">
-              ⏱️ Tracks your actual study mix — target: 📖 30% reading / 🧠🔥 70% recall + tests
+        {totalSec === 0 ? (
+          <p className="muted small mix-caption">
+            ⏱️ Your time tallies here as you go — target mix:{' '}
+            <strong>30% reading · 70% recall + tests</strong>.
+          </p>
+        ) : (
+          <>
+            <div className="stat-row">
+              <div className="stat">
+                <span className="stat-label">📖 Reading</span>
+                <span className="stat-value">{fmtSpent(studySec)}</span>
+                <span className="stat-pct">{readPct}%</span>
+              </div>
+              <div className="stat">
+                <span className="stat-label">🧠🔥 Recall + tests</span>
+                <span className="stat-value">{fmtSpent(activeSec)}</span>
+                <span className="stat-pct">{100 - readPct}%</span>
+              </div>
+              <div className="stat stat-target">
+                <span className="stat-label">🎯 Target</span>
+                <span className="stat-value">30% · 70%</span>
+              </div>
             </div>
-          ) : (
-            <>
-              <div className="mix-read" style={{ width: `${Math.max(readPct, 8)}%` }}>
-                📖 {readPct}%
-              </div>
-              <div className="mix-active" style={{ width: `${Math.min(100 - readPct, 92)}%` }}>
-                🧠🔥 {100 - readPct}%
-              </div>
-            </>
-          )}
-          <div className="mix-target" title="30% reading target" />
-        </div>
-        <p className="muted small mix-caption">
-          {totalSec === 0 ? (
-            <>Time on the study screen counts as reading; flashcards and practice tests count as recall.</>
-          ) : (
-            <>
-              So far: <strong>{fmtSpent(studySec)}</strong> reading ·{' '}
-              <strong>{fmtSpent(activeSec)}</strong> recall + tests.
-              {verdict && <> {verdict}</>}
-            </>
-          )}
-        </p>
+            {verdict && <p className="muted small mix-caption">{verdict}</p>}
+          </>
+        )}
       </div>
 
       <div className="timeline">
