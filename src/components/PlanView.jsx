@@ -1,6 +1,41 @@
 import { useEffect, useRef, useState } from 'react'
 import { TIPS, suggestSleeps } from '../lib/planner.js'
 import { LEVELS, LEVEL_META } from '../lib/engine.js'
+import Tour from './Tour.jsx'
+
+const TOUR_KEY = 'cram-brulee-tour-done'
+const TOUR_STEPS = [
+  {
+    selector: '.line-timeline',
+    emoji: '🗺️',
+    title: 'Your runway',
+    body: 'This line is your time until the test. The 🔥 markers are your suggested practice tests, and the 💤 bar is suggested sleep — drag its ends to fit your night.',
+  },
+  {
+    selector: '.action-row',
+    emoji: '🍳',
+    title: 'You choose what to do',
+    body: 'No rigid schedule. Bounce between Study and Active recall however you like — aim for about 30% reading, 70% recall. Each button tracks the time you actually spend.',
+  },
+  {
+    selector: '.break-card',
+    emoji: '☕',
+    title: 'Breaks are part of the recipe',
+    body: 'Set a break timer and grab an idea from the suggestions — resting is when your brain locks in what you just learned.',
+  },
+  {
+    selector: '.test-suggest',
+    emoji: '🔥',
+    title: 'The milestone that matters',
+    body: 'Practice tests simulate the real thing. After each one, your summaries, flashcards, and next test are rebuilt around what you missed. Score 80%+ and you level up.',
+  },
+  {
+    selector: '.level-select',
+    emoji: '🌡️',
+    title: 'Difficulty rises with you',
+    body: 'Materials start at novice. Ace a practice test to move up automatically, or pick a level yourself any time.',
+  },
+]
 
 const clock = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
@@ -143,6 +178,15 @@ export default function PlanView({
           ? 'Right on target. 👌'
           : 'Nicely recall-heavy. 💪'
 
+  // First-time tour: runs once ever, replayable from the header.
+  const [tourStep, setTourStep] = useState(() =>
+    localStorage.getItem(TOUR_KEY) ? -1 : 0
+  )
+  const endTour = () => {
+    localStorage.setItem(TOUR_KEY, '1')
+    setTourStep(-1)
+  }
+
   // Break timer state.
   const SUGGESTED_BREAK = 45
   const [customMin, setCustomMin] = useState(SUGGESTED_BREAK)
@@ -192,10 +236,24 @@ export default function PlanView({
             </span>
           </label>
           <span className="muted small level-note">
-            score 80%+ to level up · {taken}/{tests.length} tests taken
+            score 80%+ to level up · {taken}/{tests.length} tests taken ·{' '}
+            <button className="tour-replay" onClick={() => setTourStep(0)}>
+              ❓ tour
+            </button>
           </span>
         </div>
       </div>
+
+      {tourStep >= 0 && (
+        <Tour
+          steps={TOUR_STEPS}
+          step={tourStep}
+          onNext={() =>
+            tourStep >= TOUR_STEPS.length - 1 ? endTour() : setTourStep(tourStep + 1)
+          }
+          onSkip={endTour}
+        />
+      )}
 
       <div
         ref={timelineRef}
