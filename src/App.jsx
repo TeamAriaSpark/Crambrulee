@@ -11,15 +11,14 @@ import { generateMaterials, LEVELS } from './lib/engine.js'
 import { generateMaterialsAI, hasApiKey } from './lib/ai.js'
 import { generatePlan } from './lib/planner.js'
 
-const STORAGE_KEY = 'cram-brulee-v4' // v4: tests and breaks are standalone timeline items again
+const STORAGE_KEY = 'cram-brulee-v5' // v5: loose plan — suggested test times only
 
 const emptyState = {
   screen: 'upload',
   materials: null, // { name, text }
   testTime: null, // ISO string
-  cookingJob: null, // { kind: 'initial' } | { kind: 'refry', weakTopics }
-  plan: [],
-  doneSteps: [],
+  cookingJob: null, // { kind: 'initial' } | { kind: 'refry', weakTopics } | { kind: 'recook' }
+  plan: null, // { startedAt, finalReviewAt, tests: [{ id, n, suggestedAt }] }
   versions: [], // generated materials, newest last
   activeVersion: 0, // index into versions being viewed
   results: [], // { versionId, score, total, byTopic, weakTopics, at }
@@ -167,11 +166,6 @@ export default function App() {
     }
   }
 
-  const markDone = (stepId) =>
-    setState((s) =>
-      s.doneSteps.includes(stepId) ? s : { ...s, doneSteps: [...s.doneSteps, stepId] }
-    )
-
   const handleRefry = (weakTopics) =>
     update({ cookingJob: { kind: 'refry', weakTopics }, screen: 'cooking' })
 
@@ -198,28 +192,17 @@ export default function App() {
         ai={hasApiKey()}
       />
     ),
-    plan: (
+    plan: state.plan && (
       <PlanView
         plan={state.plan}
-        doneSteps={state.doneSteps}
         results={state.results}
         timeSpent={state.timeSpent}
         countdown={countdown}
         level={state.level || 'novice'}
         onLevelChange={handleLevelChange}
-        onGo={(step) => {
-          const target = { study: 'study', recall: 'flashcards', test: 'test' }[step.type]
-          if (target) update({ screen: target, activeStep: step.id })
-          else markDone(step.id)
-        }}
-        onToggleDone={(step) =>
-          setState((s) => ({
-            ...s,
-            doneSteps: s.doneSteps.includes(step.id)
-              ? s.doneSteps.filter((id) => id !== step.id)
-              : [...s.doneSteps, step.id],
-          }))
-        }
+        onStudy={() => update({ screen: 'study' })}
+        onRecall={() => update({ screen: 'flashcards' })}
+        onTest={() => update({ screen: 'test' })}
       />
     ),
     study: currentVersion && (
@@ -228,10 +211,7 @@ export default function App() {
         versions={state.versions}
         activeVersion={state.activeVersion}
         onPickVersion={(i) => update({ activeVersion: i })}
-        onFinish={() => {
-          if (state.activeStep) markDone(state.activeStep)
-          update({ screen: 'flashcards', activeStep: null })
-        }}
+        onFinish={() => update({ screen: 'flashcards' })}
         onBack={() => update({ screen: 'plan' })}
       />
     ),
@@ -241,10 +221,7 @@ export default function App() {
         versions={state.versions}
         activeVersion={state.activeVersion}
         onPickVersion={(i) => update({ activeVersion: i })}
-        onFinish={() => {
-          if (state.activeStep) markDone(state.activeStep)
-          update({ screen: 'plan', activeStep: null })
-        }}
+        onFinish={() => update({ screen: 'plan' })}
         onBack={() => update({ screen: 'plan' })}
       />
     ),
@@ -252,7 +229,6 @@ export default function App() {
       <TestView
         version={latestVersion}
         onFinish={(result) => {
-          if (state.activeStep) markDone(state.activeStep)
           setState((s) => {
             // Score ≥ 80% advances the student to the next difficulty level.
             const currentLevel = s.level || 'novice'
@@ -266,7 +242,6 @@ export default function App() {
               level: leveledUp || currentLevel,
               results: [...s.results, { ...result, levelUp: leveledUp }],
               screen: 'results',
-              activeStep: null,
             }
           })
         }}

@@ -138,11 +138,6 @@ h3 { margin: 0 0 4px; font-size: 1.05rem; }
 .hz-node.selected { box-shadow: 0 0 0 3px rgba(201, 79, 46, 0.25); }
 .hz-node.finish { background: var(--custard); border-color: var(--caramel); cursor: default; }
 
-/* selected block detail */
-.block-detail { margin-top: 16px; }
-.block-detail-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.block-detail-head h3 { margin: 0; }
-
 .levelup-banner {
   margin-top: 16px; padding: 12px 18px; border-radius: var(--radius);
   background: linear-gradient(135deg, var(--custard), #ffe9c9);
@@ -255,63 +250,33 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 .progress-track { height: 10px; border-radius: 999px; background: var(--custard); margin: 22px auto 0; max-width: 420px; overflow: hidden; }
 .progress-fill { height: 100%; background: var(--crust); border-radius: 999px; transition: width 0.5s ease; }
 
-/* ---------- plan timeline ---------- */
-.timeline { position: relative; margin-top: 20px; padding-left: 34px; }
-.timeline::before {
-  content: ''; position: absolute; left: 12px; top: 6px; bottom: 6px;
-  width: 4px; border-radius: 2px; background: var(--custard-deep);
+/* ---------- plan: action cards + test suggestion ---------- */
+.action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+.action-card {
+  flex: 1; min-width: 200px; font: inherit; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: var(--card); border-radius: 16px; padding: 20px 16px;
+  box-shadow: var(--shadow); transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
-.tl-item { position: relative; padding: 10px 0 10px 10px; }
-.tl-item::before {
-  content: ''; position: absolute; left: -28px; top: 18px;
-  width: 14px; height: 14px; border-radius: 50%;
-  background: var(--dot, var(--caramel)); border: 3px solid var(--cream);
-  box-shadow: 0 0 0 2px var(--dot, var(--caramel));
-}
-.tl-item.done { opacity: 0.55; }
-.tl-item.done .tl-title { text-decoration: line-through; }
-.tl-item.current { background: var(--custard); border-radius: 14px; padding: 12px 14px; margin-left: -4px; }
-.tl-time { font-size: 0.78rem; font-weight: 700; color: var(--cocoa-soft); font-variant-numeric: tabular-nums; }
-.tl-title { font-weight: 800; font-size: 1.02rem; }
-.tl-detail { font-size: 0.86rem; color: var(--cocoa-soft); max-width: 560px; }
-.tl-actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+.action-card:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(122, 84, 30, 0.18); }
+.action-card.read { border: 2px solid var(--custard-deep); }
+.action-card.recall { border: 2px solid var(--step-test); }
+.action-emoji { font-size: 2rem; }
+.action-title { font-size: 1.15rem; font-weight: 800; }
+.action-sub { font-size: 0.85rem; color: var(--cocoa-soft); margin-bottom: 4px; }
 
-/* cook cycles are self-contained cards with a per-part breakdown */
-.cycle-card {
-  background: var(--card);
-  border: 1.5px solid var(--line);
-  border-radius: 16px;
-  padding: 14px 16px;
-  margin: 12px 0 12px -4px;
-  box-shadow: var(--shadow);
+.test-suggest {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap; margin-top: 14px;
+  background: linear-gradient(135deg, #fff4ee, #ffe4cf);
+  border: 2px solid var(--step-test); border-radius: 16px; padding: 14px 18px;
 }
-.cycle-card.current { background: var(--custard); border-color: var(--custard-deep); }
-.cycle-card.has-milestone { border-color: var(--step-test); border-width: 2px; }
-.cycle-card.has-milestone::before {
-  width: 18px; height: 18px; left: -30px; top: 20px;
-  box-shadow: 0 0 0 2px var(--dot), 0 0 0 7px rgba(201, 79, 46, 0.18);
+.milestone-eyebrow {
+  font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--step-test); margin-bottom: 2px;
 }
-.cycle-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-.cycle-total {
-  background: var(--crust); color: #fff; font-weight: 800;
-  border-radius: 999px; padding: 5px 14px; font-size: 0.88rem;
-  white-space: nowrap; font-variant-numeric: tabular-nums;
-}
-.cycle-parts { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-.part-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 7px 12px; border-radius: 10px;
-  background: rgba(255, 237, 194, 0.4);
-}
-.cycle-card.current .part-row { background: rgba(255, 253, 248, 0.75); }
-.part-label { flex: 1; font-size: 0.88rem; font-weight: 600; }
-.part-time {
-  font-size: 0.8rem; font-weight: 800; color: var(--caramel-deep);
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-.part-time.hot-time { color: var(--step-test); }
 
-/* reading vs active-recall category highlighting */
+/* reading vs active-recall category chips */
 .cat-chip {
   font-size: 0.66rem; font-weight: 800; letter-spacing: 0.05em;
   text-transform: uppercase; white-space: nowrap;
@@ -319,30 +284,8 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 }
 .cat-chip.read { background: var(--custard); color: var(--caramel-deep); }
 .cat-chip.recall { background: #ffe3d6; color: var(--bad); }
-.part-row.read { background: rgba(255, 237, 194, 0.45); border-left: 4px solid var(--step-study); }
-.part-row.recall { background: #fff0e6; border-left: 4px solid var(--step-test); }
-.cycle-card.current .part-row.read { background: rgba(255, 253, 248, 0.8); }
-.cycle-card.current .part-row.recall { background: #fff2e8; }
 
-/* practice tests are THE milestones — standalone cards on the timeline */
-.tl-item.milestone {
-  background: linear-gradient(135deg, #fff4ee, #ffe4cf);
-  border: 2px solid var(--step-test);
-  border-radius: 16px;
-  padding: 14px 16px;
-  margin: 12px 0 12px -4px;
-  box-shadow: 0 6px 18px rgba(201, 79, 46, 0.16);
-}
-.tl-item.milestone::before {
-  width: 20px; height: 20px; left: -30px; top: 18px;
-  box-shadow: 0 0 0 2px var(--dot), 0 0 0 7px rgba(201, 79, 46, 0.18);
-}
-.tl-item.milestone .tl-title { font-size: 1.1rem; color: #8a3417; }
-.milestone-eyebrow {
-  font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--step-test); margin-bottom: 2px;
-}
-.break-row .snack-bar { margin-top: 4px; }
+.snack-bar { margin-top: 4px; }
 
 /* break + brain-food suggestion attached to a cook cycle */
 .snack-bar {
