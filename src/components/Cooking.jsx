@@ -28,6 +28,11 @@ export default function Cooking({ steps = COOK_STEPS, job, onDone, ai = false })
   const startedRef = useRef(false)
   const firedRef = useRef(false)
 
+  // Hold onDone in a ref so App re-renders (the 1s countdown) can't change its
+  // identity out from under the completion effect and cancel the hand-off.
+  const onDoneRef = useRef(onDone)
+  onDoneRef.current = onDone
+
   useEffect(() => {
     if (startedRef.current) return
     startedRef.current = true
@@ -47,9 +52,9 @@ export default function Cooking({ steps = COOK_STEPS, job, onDone, ai = false })
   useEffect(() => {
     if (!finished || firedRef.current) return
     firedRef.current = true
-    const t = setTimeout(() => onDone(result.value), 300)
+    const t = setTimeout(() => onDoneRef.current(result.value), 300)
     return () => clearTimeout(t)
-  }, [finished, result, onDone])
+  }, [finished, result])
 
   const pct = finished ? 100 : Math.min(92, Math.round(100 * (1 - Math.exp(-(step + 1) / 4))))
   const slowCook = waiting && step >= steps.length

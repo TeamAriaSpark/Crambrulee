@@ -197,7 +197,17 @@ function buildTest(flashcards, questionCount, seed) {
 
 // ---------- main entry ----------
 
-export function generateMaterials(rawText, { weakTopics = [], version = 1 } = {}) {
+// Difficulty scales the portions: novice keeps things digestible,
+// expert piles on more cards and a longer, harder test.
+export const LEVELS = ['novice', 'competent', 'expert']
+export const LEVEL_META = {
+  novice: { emoji: '🌱', points: 3, facts: 2, cards: 12, questions: 6 },
+  competent: { emoji: '🍳', points: 4, facts: 3, cards: 16, questions: 8 },
+  expert: { emoji: '👨‍🍳', points: 5, facts: 4, cards: 20, questions: 10 },
+}
+
+export function generateMaterials(rawText, { weakTopics = [], version = 1, level = 'novice' } = {}) {
+  const lvl = LEVEL_META[level] || LEVEL_META.novice
   const topics = buildTopics(rawText)
   const weak = new Set(weakTopics.map((t) => t.toLowerCase()))
   const isWeak = (name) => weak.has(name.toLowerCase())
@@ -218,13 +228,13 @@ export function generateMaterials(rawText, { weakTopics = [], version = 1 } = {}
     summary.push({
       topic: topic.name,
       weak: isWeak(topic.name),
-      points: scored.slice(0, 3 * boost).map((s) => s.sentence),
+      points: scored.slice(0, lvl.points * boost).map((s) => s.sentence),
     })
     cheatSheet.push({
       topic: topic.name,
       weak: isWeak(topic.name),
       facts: scored
-        .slice(0, 2 * boost)
+        .slice(0, lvl.facts * boost)
         .map((s) =>
           s.sentence.length > 140 ? s.sentence.slice(0, 137).trimEnd() + '…' : s.sentence
         ),
@@ -238,14 +248,19 @@ export function generateMaterials(rawText, { weakTopics = [], version = 1 } = {}
   // Keep decks a digestible size; weak-topic cards always survive the cut.
   const weakCards = flashcards.filter((c) => isWeak(c.topic))
   const otherCards = flashcards.filter((c) => !isWeak(c.topic))
-  flashcards = [...weakCards, ...otherCards].slice(0, 20)
+  flashcards = [...weakCards, ...otherCards].slice(0, lvl.cards)
 
-  const test = buildTest(flashcards, Math.min(8, Math.max(4, flashcards.length)), version * 13)
+  const test = buildTest(
+    flashcards,
+    Math.min(lvl.questions, Math.max(4, flashcards.length)),
+    version * 13
+  )
 
   return {
     id: `v${version}`,
     version,
     label: version === 1 ? 'Original recipe' : `Refried v${version}`,
+    level,
     focusTopics: weakTopics,
     createdAt: new Date().toISOString(),
     topics: topics.map((t) => t.name),

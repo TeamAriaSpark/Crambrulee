@@ -90,7 +90,25 @@ Quality bar:
 - Spread correct answers evenly across positions A-D so no option letter is a safe guess.
 - Tag every item with the topic it belongs to, using the exact topic names you list in "topics".`
 
-function buildUserPrompt(rawText, weakTopics, version) {
+const LEVEL_PROMPTS = {
+  novice: `DIFFICULTY: NOVICE. The student is meeting this material for the first time.
+- Explain in plain language and define every technical term the first time it appears.
+- Summary points teach the concept, not just state it.
+- Flashcards test foundational understanding: definitions, "what is", "where does", simple why.
+- Test questions check core comprehension; distractors are clearly distinguishable to someone who studied.
+- Portions: 10-14 flashcards; exactly 6 test questions.`,
+  competent: `DIFFICULTY: COMPETENT. The student has the basics down.
+- Standard exam level: mechanisms, comparisons, cause-and-effect, application to straightforward scenarios.
+- Test distractors are plausible near-misses that catch shallow understanding.
+- Portions: 12-20 flashcards; exactly 8 test questions.`,
+  expert: `DIFFICULTY: EXPERT. The student knows this material well — push them hard.
+- Summaries and cheat sheet are terse and dense: edge cases, exceptions, subtle distinctions, connections between topics.
+- Flashcards demand synthesis and multi-step reasoning, not lone facts.
+- Test questions are the hardest fair questions the notes support: application to novel scenarios, "which of these is NOT", combining two concepts. Distractors are near-indistinguishable without deep understanding.
+- Portions: 16-24 flashcards; exactly 10 test questions.`,
+}
+
+function buildUserPrompt(rawText, weakTopics, version, level) {
   const focus =
     weakTopics.length > 0
       ? `\n\nREFRY ORDER (version ${version}): the student just bombed these topics on a practice test: ${weakTopics.join(', ')}.
@@ -100,7 +118,9 @@ function buildUserPrompt(rawText, weakTopics, version) {
       : ''
   return `Cook study materials from these notes.
 
-Portions: 3-6 topics; 3-5 summary points per topic; 2-4 cheat-sheet facts per topic; 12-20 flashcards total; exactly 8 test questions.${focus}
+Portions: 3-6 topics; 3-5 summary points per topic; 2-4 cheat-sheet facts per topic.
+
+${LEVEL_PROMPTS[level] || LEVEL_PROMPTS.novice}${focus}
 
 STUDENT'S NOTES:
 ${rawText}`
@@ -108,7 +128,7 @@ ${rawText}`
 
 // Coerce the model output into the exact shape the app expects, and drop
 // anything malformed rather than letting it break the UI.
-function normalize(data, weakTopics, version) {
+function normalize(data, weakTopics, version, level) {
   const weak = new Set(weakTopics.map((t) => t.toLowerCase()))
   const isWeak = (t) => weak.has(String(t).toLowerCase())
   const str = (s) => String(s ?? '').trim()
@@ -147,6 +167,7 @@ function normalize(data, weakTopics, version) {
     id: `v${version}`,
     version,
     label: version === 1 ? 'Original recipe' : `Refried v${version}`,
+    level,
     focusTopics: weakTopics,
     createdAt: new Date().toISOString(),
     topics: (data.topics || summary.map((b) => b.topic)).map(str),
@@ -158,7 +179,10 @@ function normalize(data, weakTopics, version) {
   }
 }
 
-export async function generateMaterialsAI(rawText, { weakTopics = [], version = 1 } = {}) {
+export async function generateMaterialsAI(
+  rawText,
+  { weakTopics = [], version = 1, level = 'novice' } = {}
+) {
   const client = new Anthropic({
     apiKey: getApiKey(),
     dangerouslyAllowBrowser: true, // user's own key, stored locally, calls made from their browser
@@ -172,7 +196,9 @@ export async function generateMaterialsAI(rawText, { weakTopics = [], version = 
       thinking: { type: 'adaptive' },
       system: SYSTEM_PROMPT,
       output_config: { format: { type: 'json_schema', schema: MATERIALS_SCHEMA } },
-      messages: [{ role: 'user', content: buildUserPrompt(rawText, weakTopics, version) }],
+      messages: [
+        { role: 'user', content: buildUserPrompt(rawText, weakTopics, version, level) },
+      ],
     })
   } catch (err) {
     if (err instanceof Anthropic.AuthenticationError)
@@ -190,5 +216,5 @@ export async function generateMaterialsAI(rawText, { weakTopics = [], version = 
   }
   const textBlock = response.content.find((b) => b.type === 'text')
   if (!textBlock) throw new Error('AI returned no content')
-  return normalize(JSON.parse(textBlock.text), weakTopics, version)
+  return normalize(JSON.parse(textBlock.text), weakTopics, version, level)
 }

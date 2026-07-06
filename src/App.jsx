@@ -7,7 +7,7 @@ import StudyView from './components/StudyView.jsx'
 import FlashcardsView from './components/FlashcardsView.jsx'
 import TestView from './components/TestView.jsx'
 import ResultsView from './components/ResultsView.jsx'
-import { generateMaterials } from './lib/engine.js'
+import { generateMaterials, LEVELS } from './lib/engine.js'
 import { generateMaterialsAI, hasApiKey } from './lib/ai.js'
 import { generatePlan } from './lib/planner.js'
 
@@ -24,6 +24,7 @@ const emptyState = {
   activeVersion: 0, // index into versions being viewed
   results: [], // { versionId, score, total, byTopic, weakTopics, at }
   timeSpent: { study: 0, active: 0 }, // seconds actually spent on each kind of screen
+  level: 'novice', // novice | competent | expert — advances on strong practice-test scores
 }
 
 function loadState() {
@@ -111,32 +112,43 @@ export default function App() {
   const cookMaterials = useCallback(
     async (opts) => {
       const text = state.materials?.text || ''
+      const fullOpts = { level: state.level || 'novice', ...opts }
       if (hasApiKey()) {
         try {
-          return await generateMaterialsAI(text, opts)
+          return await generateMaterialsAI(text, fullOpts)
         } catch (err) {
           console.warn('AI kitchen unavailable, using the house engine:', err)
-          const fallback = generateMaterials(text, opts)
+          const fallback = generateMaterials(text, fullOpts)
           fallback.note = `The AI kitchen hit a snag (${err?.message || 'unknown error'}), so this batch was cooked with the house engine.`
           return fallback
         }
       }
-      return generateMaterials(text, opts)
+      return generateMaterials(text, fullOpts)
     },
-    [state.materials]
+    [state.materials, state.level]
   )
 
   const cookingJob = state.cookingJob || { kind: 'initial' }
   const runCookingJob = useCallback(async () => {
-    if (cookingJob.kind === 'refry') {
-      const version = (state.versions[state.versions.length - 1]?.version || 1) + 1
-      return cookMaterials({ weakTopics: cookingJob.weakTopics, version })
-    }
+    const nextVersion = (state.versions[state.versions.length - 1]?.version || 1) + 1
+    if (cookingJob.kind === 'refry')
+      return cookMaterials({ weakTopics: cookingJob.weakTopics, version: nextVersion })
+    if (cookingJob.kind === 'recook') return cookMaterials({ version: nextVersion })
     return cookMaterials({ version: 1 })
   }, [cookingJob, cookMaterials, state.versions])
 
+  // Changing difficulty re-cooks the materials at the new level.
+  const handleLevelChange = (level) => {
+    if (!LEVELS.includes(level) || level === state.level) return
+    if (state.versions.length > 0) {
+      update({ level, cookingJob: { kind: 'recook' }, screen: 'cooking' })
+    } else {
+      update({ level })
+    }
+  }
+
   const handleCooked = (fresh) => {
-    if (cookingJob.kind === 'refry') {
+    if (cookingJob.kind === 'refry' || cookingJob.kind === 'recook') {
       setState((s) => ({
         ...s,
         versions: [...s.versions, fresh],
@@ -193,6 +205,8 @@ export default function App() {
         results={state.results}
         timeSpent={state.timeSpent}
         countdown={countdown}
+        level={state.level || 'novice'}
+        onLevelChange={handleLevelChange}
         onGo={(step) => {
           const target = { study: 'study', recall: 'flashcards', test: 'test' }[step.type]
           if (target) update({ screen: target, activeStep: step.id })
@@ -239,12 +253,22 @@ export default function App() {
         version={latestVersion}
         onFinish={(result) => {
           if (state.activeStep) markDone(state.activeStep)
-          setState((s) => ({
-            ...s,
-            results: [...s.results, result],
-            screen: 'results',
-            activeStep: null,
-          }))
+          setState((s) => {
+            // Score ≥ 80% advances the student to the next difficulty level.
+            const currentLevel = s.level || 'novice'
+            const idx = LEVELS.indexOf(currentLevel)
+            const leveledUp =
+              result.score / result.total >= 0.8 && idx < LEVELS.length - 1
+                ? LEVELS[idx + 1]
+                : null
+            return {
+              ...s,
+              level: leveledUp || currentLevel,
+              results: [...s.results, { ...result, levelUp: leveledUp }],
+              screen: 'results',
+              activeStep: null,
+            }
+          })
         }}
         onBack={() => update({ screen: 'plan' })}
       />
@@ -252,7 +276,9 @@ export default function App() {
     results: state.results.length > 0 && (
       <ResultsView
         result={state.results[state.results.length - 1]}
+        level={state.level || 'novice'}
         onRefry={handleRefry}
+        onRecook={() => update({ cookingJob: { kind: 'recook' }, screen: 'cooking' })}
         onPlan={() => update({ screen: 'plan' })}
       />
     ),

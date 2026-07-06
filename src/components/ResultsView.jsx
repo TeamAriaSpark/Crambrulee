@@ -1,4 +1,6 @@
-export default function ResultsView({ result, onRefry, onPlan }) {
+const LEVEL_EMOJI = { novice: '🌱', competent: '🍳', expert: '👨‍🍳' }
+
+export default function ResultsView({ result, level, onRefry, onRecook, onPlan }) {
   const pct = Math.round((result.score / result.total) * 100)
   const verdict =
     pct >= 90
@@ -20,6 +22,16 @@ export default function ResultsView({ result, onRefry, onPlan }) {
           {pct}% on {result.versionLabel} — {verdict.line}
         </p>
       </div>
+
+      {result.levelUp && (
+        <div className="levelup-banner">
+          🎉 <strong>Level up!</strong> You scored 80%+ — you’re now cooking at{' '}
+          <strong>
+            {LEVEL_EMOJI[result.levelUp]} {result.levelUp}
+          </strong>{' '}
+          level. Your next materials will be harder to match.
+        </div>
+      )}
 
       <h3 style={{ marginTop: 18 }}>Doneness by topic</h3>
       <div className="topic-bars">
@@ -62,10 +74,18 @@ export default function ResultsView({ result, onRefry, onPlan }) {
         <div className="refry-banner" style={{ borderColor: 'var(--good)', background: '#f2f8ef' }}>
           <h3>✨ No weak spots detected</h3>
           <p className="muted small">
-            Every topic held up under heat. Keep cycling recall to keep it crisp.
+            Every topic held up under heat.
+            {result.levelUp
+              ? ' Cook a fresh batch at your new level to keep the burn going.'
+              : ' Keep cycling recall to keep it crisp.'}
           </p>
           <div className="step-row">
-            <button className="btn" onClick={onPlan}>
+            {result.levelUp && (
+              <button className="btn" onClick={onRecook}>
+                Cook {LEVEL_EMOJI[level]} {level}-level materials 🔥
+              </button>
+            )}
+            <button className={`btn ${result.levelUp ? 'ghost' : ''}`} onClick={onPlan}>
               Back to the plan →
             </button>
           </div>

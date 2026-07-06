@@ -44,7 +44,12 @@ export default function StudyView({
             🍳 Study session{' '}
             <span className="pill" title={version.source === 'ai' ? 'Cooked by Claude' : 'Cooked by the built-in engine'}>
               {version.source === 'ai' ? '👨‍🍳 AI-cooked' : '🏠 house recipe'}
-            </span>
+            </span>{' '}
+            {version.level && (
+              <span className="pill" title="Difficulty level of this batch">
+                {{ novice: '🌱', competent: '🍳', expert: '👨‍🍳' }[version.level]} {version.level}
+              </span>
+            )}
           </h2>
           <p className="muted">
             {version.focusTopics.length > 0 ? (
