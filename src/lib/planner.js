@@ -70,10 +70,14 @@ export function generatePlan(testTimeISO, now = new Date()) {
 
   // Cycle length scales with runway: short runway → tight 45-min cycles,
   // long runway → bigger blocks so the plan stays digestible.
+  // The learning-time mix targets the research-backed ratio of ~30% reading
+  // to ~70% retrieval (recall + practice tests): Gates (1917) found best
+  // retention around 60-80% recitation time. Study gets 27% of the cycle so
+  // that once practice tests join the active side, plans land at 27-33% read.
   const cycleMin = Math.min(180, Math.max(45, Math.round(totalMin / 14)))
-  const study = Math.round(cycleMin * 0.5)
-  const recall = Math.round(cycleMin * 0.3)
-  const brk = cycleMin - study - recall
+  const brk = Math.round(cycleMin * 0.2)
+  const study = Math.round(cycleMin * 0.27)
+  const recall = cycleMin - brk - study
   const testLen = 25
 
   // Leave a buffer before the real test: review the cheat sheet, then rest.

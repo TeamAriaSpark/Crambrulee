@@ -101,6 +101,27 @@ h3 { margin: 0 0 4px; font-size: 1.05rem; }
 
 .step-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 
+/* the 30/70 mix bar on the plan */
+.mix-bar { margin-top: 14px; }
+.mix-track {
+  display: flex; height: 34px; border-radius: 999px; overflow: hidden;
+  border: 1.5px solid var(--line); font-size: 0.78rem; font-weight: 800;
+}
+.mix-read {
+  background: var(--custard); color: var(--caramel-deep);
+  display: flex; align-items: center; justify-content: center;
+  white-space: nowrap; min-width: 64px;
+}
+.mix-active {
+  background: var(--crust); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  white-space: nowrap; padding: 0 8px;
+}
+.mix-caption { margin: 6px 0 0; }
+@media (max-width: 560px) {
+  .mix-active { font-size: 0.68rem; }
+}
+
 /* ---------- upload ---------- */
 .hero { text-align: center; padding: 30px 26px 34px; }
 .hero .flan-big { font-size: 4rem; display: block; margin-bottom: 6px; }

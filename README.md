@@ -2,7 +2,7 @@
 
 **The study app with a crispy top.** A play on crème brûlée — because a great cram session, like a great custard, is all about applying the right heat at the right time.
 
-Our special sauce is science-backed: **active recall beats rereading**. Retrieval practice — forcing your brain to reach for an answer — builds far stronger memories than passively going over notes. cram brûlée bakes that into every step.
+Our special sauce is science-backed: **active recall beats rereading**. Retrieval practice — forcing your brain to reach for an answer — builds far stronger memories than passively going over notes ([Gates 1917](https://archive.org/details/recitationasafa00gategoog); [Roediger & Karpicke 2006](http://psychnet.wustl.edu/memory/wp-content/uploads/2018/04/Roediger-Karpicke-2006_PPS.pdf)). Every cram plan is blended to the ratio that research supports: **~30% reading, ~70% active recall + practice tests**, and the plan shows you its actual mix.
 
 ## How it works
 

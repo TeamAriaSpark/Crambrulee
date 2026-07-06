@@ -72,8 +72,9 @@ export default function Upload({ onDone }) {
           <strong>Rereading your notes feels productive — that’s the trap.</strong> Most students
           get a false sense of security from rereading. Studies show <strong>active recall</strong> —
           pulling answers <em>out</em> of your brain instead of pouring them back in — is the most
-          effective way to study. cram brûlée guides you through active recall exercises, so you
-          learn fast.
+          effective way to study. The winning mix, backed by a century of research: about{' '}
+          <strong>30% reading, 70% recall &amp; practice tests</strong> — and cram brûlée blends
+          every plan to that ratio, so you learn fast.
         </p>
       </div>
 

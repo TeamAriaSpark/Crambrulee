@@ -22,6 +22,14 @@ export default function PlanView({ plan, doneSteps, results, countdown, onGo, on
     .filter((p) => p.kind === 'test').length
   const takenTests = results.length
 
+  let studyMin = 0
+  let activeMin = 0
+  for (const part of plan.flatMap((i) => i.parts || [])) {
+    if (part.kind === 'study') studyMin += part.durationMin
+    if (part.kind === 'recall' || part.kind === 'test') activeMin += part.durationMin
+  }
+  const readPct = Math.round((studyMin / Math.max(studyMin + activeMin, 1)) * 100)
+
   return (
     <div className="card">
       <div className="session-head">
@@ -35,6 +43,21 @@ export default function PlanView({ plan, doneSteps, results, countdown, onGo, on
           </p>
         </div>
         {countdown && <span className="pill hot">⏲️ {countdown.text} left</span>}
+      </div>
+
+      <div className="mix-bar" title="A century of research: retrieval beats rereading. We mix your hours accordingly.">
+        <div className="mix-track">
+          <div className="mix-read" style={{ width: `${readPct}%` }}>
+            📖 {readPct}%
+          </div>
+          <div className="mix-active" style={{ width: `${100 - readPct}%` }}>
+            🧠🔥 {100 - readPct}% active recall + practice tests
+          </div>
+        </div>
+        <p className="muted small mix-caption">
+          Your hours, mixed to the science-backed ratio — roughly 30% reading, 70% pulling it
+          back out.
+        </p>
       </div>
 
       <div className="timeline">
