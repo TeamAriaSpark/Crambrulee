@@ -45,10 +45,10 @@ export default function PlanView({
   const verdict = !enoughData
     ? null
     : readPct > 40
-      ? 'Heavy on the rereading — close the notes and flip some flashcards. 🔥'
+      ? 'You’re rereading more than the target — switch to flashcards or a practice test. 🔥'
       : readPct >= 22
-        ? 'Perfect mix, chef. 👨‍🍳💋'
-        : 'Extra crispy — all heat, no sogginess. Keep it up. 🔥'
+        ? 'Right on target — keep this balance. 👌'
+        : 'Nicely recall-heavy — exactly what the research favors. 💪'
 
   return (
     <div className="card">
@@ -56,10 +56,10 @@ export default function PlanView({
         <div>
           <h2>🗺️ Your cram plan</h2>
           <p className="muted">
-            Each <strong>cook cycle</strong> is one serving of the recipe:{' '}
-            <strong>🍳 study → 🧠 active recall → ☕ break</strong> — and when a{' '}
-            <strong>🔥 practice test</strong> milestone lands in a cycle, it refries your
-            materials around your weak spots.
+            Every round is the same simple loop:{' '}
+            <strong>📖 study → 🧠 flashcards → ☕ break</strong>.{' '}
+            <strong>🔥 Practice tests</strong> are your milestones — after each one, your study
+            materials are rebuilt to focus on what you missed.
           </p>
         </div>
         {countdown && <span className="pill hot">⏲️ {countdown.text} left</span>}
@@ -72,7 +72,7 @@ export default function PlanView({
         <div className="mix-track">
           {totalSec === 0 ? (
             <div className="mix-empty">
-              ⏱️ Your real mix tracks here as you cook — target: 📖 30% / 🧠🔥 70%
+              ⏱️ Tracks your actual study mix — target: 📖 30% reading / 🧠🔥 70% recall + tests
             </div>
           ) : (
             <>
@@ -135,7 +135,7 @@ export default function PlanView({
                     {fmtTime(item.start)}
                     {isCurrent && <span className="pill" style={{ marginLeft: 8 }}>you are here</span>}
                   </div>
-                  <div className="tl-title">🍳 Cook cycle {item.n}</div>
+                  <div className="tl-title">Round {item.n}</div>
                 </div>
                 <div className="cycle-total">{fmtDuration(item.durationMin)}</div>
               </div>
@@ -145,7 +145,7 @@ export default function PlanView({
                   if (part.kind === 'study')
                     return (
                       <div className="part-row" key={i}>
-                        <span className="part-label">🍳 Study the summary &amp; cheat sheet</span>
+                        <span className="part-label">📖 Study the summary &amp; cheat sheet</span>
                         <span className="part-time">{part.durationMin} min</span>
                         <button
                           className="btn ghost small-btn"
@@ -158,7 +158,7 @@ export default function PlanView({
                   if (part.kind === 'recall')
                     return (
                       <div className="part-row" key={i}>
-                        <span className="part-label">🧠 Active recall — flashcards, notes closed</span>
+                        <span className="part-label">🧠 Flashcards — answer from memory, notes closed</span>
                         <span className="part-time">{part.durationMin} min</span>
                         <button
                           className="btn ghost small-btn"
@@ -174,8 +174,8 @@ export default function PlanView({
                         <div className="milestone-eyebrow">🔥 Milestone</div>
                         <div className="part-row">
                           <span className="part-label">
-                            <strong>Practice test {part.n} of {totalTests}</strong> — real
-                            conditions, then we refry everything around what you missed
+                            <strong>Practice test {part.n} of {totalTests}</strong> — simulates
+                            the real thing, then your materials are rebuilt around what you missed
                           </span>
                           <span className="part-time hot-time">{part.durationMin} min</span>
                           <button
@@ -205,7 +205,7 @@ export default function PlanView({
               {!done && (
                 <div className="tl-actions">
                   <button className="btn ghost small-btn" onClick={() => onToggleDone(item)}>
-                    Mark cycle done ✓
+                    Mark round done ✓
                   </button>
                 </div>
               )}
@@ -215,8 +215,8 @@ export default function PlanView({
       </div>
 
       <p className="muted small" style={{ marginTop: 18 }}>
-        🔥 {takenTests} of {totalTests} practice tests taken. Each one refries your materials
-        around your weak spots — that’s where the real flavor develops.
+        🔥 {takenTests} of {totalTests} practice tests taken. After each one, your summaries,
+        flashcards, and next test are rebuilt to target your weak spots.
       </p>
     </div>
   )

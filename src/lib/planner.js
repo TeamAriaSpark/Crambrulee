@@ -104,7 +104,7 @@ export function generatePlan(testTimeISO, now = new Date()) {
         type: 'sleep',
         title: '💤 Sleep — non-negotiable',
         detail:
-          'Sleep is when your brain caramelizes today’s studying into long-term memory. All-nighters burn the custard.',
+          'Sleep is when your brain moves today’s studying into long-term memory. An all-nighter undoes the work you just did.',
         start: cursor.toISOString(),
         durationMin: sleepMin,
       })
@@ -156,9 +156,9 @@ export function generatePlan(testTimeISO, now = new Date()) {
   items.push({
     id: makeId(),
     type: 'final',
-    title: '🍮 Final glaze',
+    title: '✅ Final review',
     detail:
-      'One calm pass over the cheat sheet, water, a snack, deep breaths. You’ve got this — go crack that crust.',
+      'One last calm pass over the cheat sheet, then step away. Water, a snack, deep breaths — you’re ready.',
     start: endOfWork.toISOString(),
     durationMin: bufferMin,
   })
