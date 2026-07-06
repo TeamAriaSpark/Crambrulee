@@ -110,44 +110,43 @@ export function generatePlan(testTimeISO, now = new Date()) {
     }
 
     cycle++
-    const withBreak = addMin(cursor, study + recall + brk) <= endOfWork
+
+    // A cycle is study → recall, then a practice test when we've crossed the
+    // next evenly-spaced milestone, then a break to recover. All one card.
+    const afterStudyRecall = addMin(cursor, study + recall)
+    const progress = 1 - (endOfWork - afterStudyRecall) / (endOfWork - now)
+    const withTest =
+      testCount < plannedTests &&
+      progress >= (testCount + 1) / (plannedTests + 0.4) &&
+      addMin(afterStudyRecall, testLen) <= endOfWork
+    if (withTest) testCount++
+    const withBreak =
+      addMin(afterStudyRecall, (withTest ? testLen : 0) + brk) <= endOfWork
     const tipList = cycle % 2 === 0 ? NUTRIENT_TIPS : BREAK_TIPS
+
+    const parts = [
+      { kind: 'study', durationMin: study },
+      { kind: 'recall', durationMin: recall },
+    ]
+    if (withTest) parts.push({ kind: 'test', durationMin: testLen, n: testCount })
+    if (withBreak)
+      parts.push({
+        kind: 'break',
+        durationMin: brk,
+        ...tipList[Math.floor(cycle / 2) % tipList.length],
+      })
+
+    const totalMinCycle = parts.reduce((sum, p) => sum + p.durationMin, 0)
     items.push({
       id: makeId(),
       type: 'cycle',
       n: cycle,
       start: cursor.toISOString(),
-      durationMin: study + recall + (withBreak ? brk : 0),
-      study,
-      recall,
-      break: withBreak
-        ? { durationMin: brk, ...tipList[Math.floor(cycle / 2) % tipList.length] }
-        : null,
+      durationMin: totalMinCycle,
+      parts,
     })
-    cursor = addMin(cursor, study + recall + (withBreak ? brk : 0))
-    sinceSleepMin += study + recall + (withBreak ? brk : 0)
-
-    // Practice tests as evenly-spaced milestones through the remaining cycles.
-    const progress = 1 - (endOfWork - cursor) / (endOfWork - now)
-    if (
-      testCount < plannedTests &&
-      progress >= (testCount + 1) / (plannedTests + 0.4) &&
-      addMin(cursor, testLen) <= endOfWork
-    ) {
-      testCount++
-      items.push({
-        id: makeId(),
-        type: 'test',
-        n: testCount,
-        title: `Practice test ${testCount}`,
-        detail:
-          'Real test conditions. Afterwards we refry everything — summaries, flashcards, and the next test — around whatever you missed.',
-        start: cursor.toISOString(),
-        durationMin: testLen,
-      })
-      cursor = addMin(cursor, testLen)
-      sinceSleepMin += testLen
-    }
+    cursor = addMin(cursor, totalMinCycle)
+    sinceSleepMin += totalMinCycle
   }
 
   items.push({
@@ -160,19 +159,20 @@ export function generatePlan(testTimeISO, now = new Date()) {
     durationMin: bufferMin,
   })
 
-  // Guarantee at least one practice test even on tiny runways.
+  // Guarantee at least one practice test even on tiny runways: tack a quick
+  // one onto the last cycle.
   if (testCount === 0) {
-    const insertAt = items.findIndex((i) => i.type === 'final')
-    const anchor = items[Math.max(insertAt - 1, 0)]
-    items.splice(insertAt, 0, {
-      id: makeId(),
-      type: 'test',
-      n: 1,
-      title: 'Practice test 1',
-      detail: 'Even a quick simulated test tells us what to refry.',
-      start: addMin(new Date(anchor.start), anchor.durationMin).toISOString(),
-      durationMin: Math.min(testLen, bufferMin),
-    })
+    const lastCycle = [...items].reverse().find((i) => i.type === 'cycle')
+    if (lastCycle) {
+      const quickTest = Math.min(testLen, bufferMin)
+      const breakIdx = lastCycle.parts.findIndex((p) => p.kind === 'break')
+      lastCycle.parts.splice(breakIdx === -1 ? lastCycle.parts.length : breakIdx, 0, {
+        kind: 'test',
+        durationMin: quickTest,
+        n: 1,
+      })
+      lastCycle.durationMin += quickTest
+    }
   }
 
   return items
@@ -180,7 +180,6 @@ export function generatePlan(testTimeISO, now = new Date()) {
 
 export const TYPE_META = {
   cycle: { color: 'var(--step-study)' },
-  test: { color: 'var(--step-test)' },
   sleep: { color: 'var(--step-sleep)' },
   final: { color: 'var(--step-final)' },
 }

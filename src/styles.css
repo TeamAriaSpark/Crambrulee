@@ -210,25 +210,52 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 .tl-detail { font-size: 0.86rem; color: var(--cocoa-soft); max-width: 560px; }
 .tl-actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
 
-/* practice tests are THE milestones — make them read like one */
-.tl-item.milestone {
+/* cook cycles are self-contained cards with a per-part breakdown */
+.cycle-card {
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin: 12px 0 12px -4px;
+  box-shadow: var(--shadow);
+}
+.cycle-card.current { background: var(--custard); border-color: var(--custard-deep); }
+.cycle-card.has-milestone { border-color: var(--step-test); border-width: 2px; }
+.cycle-card.has-milestone::before {
+  width: 18px; height: 18px; left: -30px; top: 20px;
+  box-shadow: 0 0 0 2px var(--dot), 0 0 0 7px rgba(201, 79, 46, 0.18);
+}
+.cycle-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.cycle-total {
+  background: var(--crust); color: #fff; font-weight: 800;
+  border-radius: 999px; padding: 5px 14px; font-size: 0.88rem;
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.cycle-parts { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.part-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 12px; border-radius: 10px;
+  background: rgba(255, 237, 194, 0.4);
+}
+.cycle-card.current .part-row { background: rgba(255, 253, 248, 0.75); }
+.part-label { flex: 1; font-size: 0.88rem; font-weight: 600; }
+.part-time {
+  font-size: 0.8rem; font-weight: 800; color: var(--caramel-deep);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.part-time.hot-time { color: var(--step-test); }
+
+/* practice tests are THE milestones — a standout block inside the cycle */
+.part-milestone {
   background: linear-gradient(135deg, #fff4ee, #ffe4cf);
   border: 2px solid var(--step-test);
-  border-radius: 16px;
-  padding: 16px 18px;
-  margin: 16px 0 16px -4px;
-  box-shadow: 0 6px 18px rgba(201, 79, 46, 0.16);
+  border-radius: 12px;
+  padding: 10px 12px;
 }
-.tl-item.milestone::before {
-  width: 20px; height: 20px; left: -30px; top: 20px;
-  background: var(--step-test);
-  box-shadow: 0 0 0 2px var(--step-test), 0 0 0 7px rgba(201, 79, 46, 0.18);
-}
-.tl-item.milestone.current { margin-left: -4px; }
-.tl-item.milestone .tl-title { font-size: 1.15rem; color: #8a3417; }
+.part-milestone .part-row { background: transparent; padding: 0; }
 .milestone-eyebrow {
   font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--step-test); margin-bottom: 2px;
+  text-transform: uppercase; color: var(--step-test); margin-bottom: 4px;
 }
 
 /* break + brain-food suggestion attached to a cook cycle */
