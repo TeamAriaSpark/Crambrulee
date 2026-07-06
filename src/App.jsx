@@ -66,8 +66,21 @@ export default function App() {
   const currentVersion = state.versions[state.activeVersion] || null
   const latestVersion = state.versions[state.versions.length - 1] || null
 
+  // Two-tap reset instead of window.confirm() — blocking dialogs are
+  // suppressed in sandboxed embeds, where the logo would silently do nothing.
+  const [confirmReset, setConfirmReset] = useState(false)
+  useEffect(() => {
+    if (!confirmReset) return
+    const t = setTimeout(() => setConfirmReset(false), 4000)
+    return () => clearTimeout(t)
+  }, [confirmReset])
+
   const startOver = () => {
-    if (state.materials && !confirm('Toss this batch and start a fresh one?')) return
+    if (state.materials && !confirmReset) {
+      setConfirmReset(true)
+      return
+    }
+    setConfirmReset(false)
     localStorage.removeItem(STORAGE_KEY)
     setState(emptyState)
   }
@@ -226,13 +239,21 @@ export default function App() {
   return (
     <div className="app">
       <header className="masthead">
-        <button className="brand" onClick={startOver} title="Start a fresh batch">
-          <span className="brand-flan">🍮</span>
+        <button
+          className={`brand ${confirmReset ? 'confirm-reset' : ''}`}
+          onClick={startOver}
+          title="Start a fresh batch"
+        >
+          <span className="brand-flan">{confirmReset ? '🗑️' : '🍮'}</span>
           <span>
             <h1>
               cram <span className="brule">brûlée</span>
             </h1>
-            <p className="tagline">active recall is our special sauce</p>
+            <p className="tagline">
+              {confirmReset
+                ? 'tap again to toss this batch and start fresh'
+                : 'active recall is our special sauce'}
+            </p>
           </span>
         </button>
         {countdown && state.screen !== 'upload' && state.screen !== 'time' && (

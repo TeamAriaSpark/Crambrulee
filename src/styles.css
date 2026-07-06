@@ -51,6 +51,13 @@ body {
 }
 .brand h1 .brule { color: var(--caramel); }
 .brand .tagline { margin: 0; font-size: 0.78rem; color: var(--cocoa-soft); }
+.brand.confirm-reset { animation: nudge 0.3s ease; }
+.brand.confirm-reset .tagline { color: var(--bad); font-weight: 700; }
+@keyframes nudge {
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(-3px); }
+  60% { transform: translateX(3px); }
+}
 .countdown-chip {
   background: var(--crust); color: #fff; font-weight: 700;
   padding: 8px 16px; border-radius: 999px; box-shadow: var(--shadow);
