@@ -46,6 +46,7 @@ const fmtIn = (iso) => {
 export default function PlanView({
   plan,
   results,
+  gauge,
   level,
   onLevelChange,
   onStartSession,
@@ -131,6 +132,32 @@ export default function PlanView({
           />{' '}
           min.
         </p>
+        {gauge && (
+          <div
+            className="gauge"
+            title="Fills up as you complete study sessions — it resets after each practice test"
+          >
+            <div className="gauge-track">
+              <div
+                className={`gauge-fill ${gauge.doneMin >= gauge.targetMin ? 'full' : ''}`}
+                style={{
+                  width: `${Math.min(100, Math.round((gauge.doneMin / gauge.targetMin) * 100))}%`,
+                }}
+              />
+            </div>
+            <span className="gauge-label">
+              {gauge.doneMin >= gauge.targetMin ? (
+                <>✅ recommended study time hit — you’re ready for the test</>
+              ) : (
+                <>
+                  <strong>{fmtDuration(gauge.doneMin)}</strong> of {fmtDuration(gauge.targetMin)}{' '}
+                  recommended study
+                  {gauge.testN ? ` before practice test ${gauge.testN}` : ''}
+                </>
+              )}
+            </span>
+          </div>
+        )}
         <div className="len-row">
           {[30, 45, 60, 90].map((m) => (
             <button

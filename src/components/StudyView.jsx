@@ -33,6 +33,7 @@ export default function StudyView({
   onFinish,
   onBack,
   embedded = false,
+  headerExtra = null,
 }) {
   const [tab, setTab] = useState('summary')
   const blocks = tab === 'summary' ? version.summary : version.cheatSheet
@@ -64,7 +65,7 @@ export default function StudyView({
           </p>
           {version.note && <p className="cook-note">⚠️ {version.note}</p>}
         </div>
-        {!embedded && <SessionTimer minutes={25} />}
+        {embedded ? headerExtra : <SessionTimer minutes={25} />}
       </div>
 
       <VersionPicker versions={versions} activeVersion={activeVersion} onPick={onPickVersion} />

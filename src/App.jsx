@@ -26,8 +26,22 @@ const emptyState = {
   results: [], // { versionId, score, total, byTopic, weakTopics, at }
   timeSpent: { study: 0, active: 0, break: 0 }, // seconds actually spent on each kind of task
   breakTimer: null, // { startedAt, lengthMin, until } while a break is running/over
-  session: null, // { startedAt, lengthMin, until, breakEveryMin, nextBreakAt, mode }
+  session: null, // { startedAt, lengthMin, until, breakEveryMin, nextBreakAt, mode, base }
+  sessionGoal: null, // { targetMin, baseSpent, testN } — recommended study before the next test
   level: 'novice', // novice | competent | expert — advances on strong practice-test scores
+}
+
+// The study-time gauge target: minutes from now until the next untaken
+// practice test, frozen at plan creation / after each test so the gauge
+// fills steadily as sessions are completed.
+function goalFrom(plan, testsTaken, timeSpent) {
+  const next = plan?.tests?.[testsTaken] || null
+  const raw = next ? (new Date(next.suggestedAt) - Date.now()) / 60000 : 60
+  return {
+    targetMin: Math.min(300, Math.max(15, Math.round(raw / 5) * 5)),
+    baseSpent: (timeSpent?.study || 0) + (timeSpent?.active || 0),
+    testN: next?.n || null,
+  }
 }
 
 function loadState() {
@@ -66,6 +80,16 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   }, [state])
+
+  // Plans saved before the gauge existed have no goal — backfill one.
+  useEffect(() => {
+    if (!state.plan || state.sessionGoal) return
+    setState((s) =>
+      s.plan && !s.sessionGoal
+        ? { ...s, sessionGoal: goalFrom(s.plan, s.results.length, s.timeSpent) }
+        : s
+    )
+  }, [state.plan, state.sessionGoal])
 
   // Track real time on task: study screens count as reading, flashcards and
   // practice tests count as active recall. Only ticks while the tab is visible.
@@ -149,7 +173,8 @@ export default function App() {
 
   const startSession = (lengthMin, breakEveryMin) => {
     const now = Date.now()
-    update({
+    setState((s) => ({
+      ...s,
       session: {
         startedAt: new Date(now).toISOString(),
         lengthMin,
@@ -157,9 +182,11 @@ export default function App() {
         breakEveryMin,
         nextBreakAt: new Date(now + breakEveryMin * 60000).toISOString(),
         mode: 'study',
+        // Snapshot so the chip tooltip can show this session's reading/recall mix.
+        base: { study: s.timeSpent?.study || 0, active: s.timeSpent?.active || 0 },
       },
       screen: 'session',
-    })
+    }))
   }
   const endSession = () => update({ session: null, breakTimer: null, screen: 'plan' })
 
@@ -237,13 +264,16 @@ export default function App() {
         screen: 'study',
       }))
     } else {
-      update({
-        plan: generatePlan(state.testTime),
+      const plan = generatePlan(state.testTime)
+      setState((s) => ({
+        ...s,
+        plan,
+        sessionGoal: goalFrom(plan, 0, s.timeSpent),
         versions: [fresh],
         activeVersion: 0,
         cookingJob: null,
         screen: 'plan',
-      })
+      }))
     }
   }
 
@@ -277,6 +307,21 @@ export default function App() {
       <PlanView
         plan={state.plan}
         results={state.results}
+        gauge={
+          state.sessionGoal && {
+            doneMin: Math.max(
+              0,
+              Math.round(
+                ((state.timeSpent?.study || 0) +
+                  (state.timeSpent?.active || 0) -
+                  state.sessionGoal.baseSpent) /
+                  60
+              )
+            ),
+            targetMin: state.sessionGoal.targetMin,
+            testN: state.sessionGoal.testN,
+          }
+        }
         level={state.level || 'novice'}
         onLevelChange={handleLevelChange}
         onStartSession={startSession}
@@ -331,10 +376,13 @@ export default function App() {
               result.score / result.total >= 0.8 && idx < LEVELS.length - 1
                 ? LEVELS[idx + 1]
                 : null
+            const results = [...s.results, { ...result, levelUp: leveledUp }]
             return {
               ...s,
               level: leveledUp || currentLevel,
-              results: [...s.results, { ...result, levelUp: leveledUp }],
+              results,
+              // Fresh gauge target for the stretch to the next practice test.
+              sessionGoal: goalFrom(s.plan, results.length, s.timeSpent),
               screen: 'results',
             }
           })
@@ -373,47 +421,88 @@ export default function App() {
             </p>
           </span>
         </button>
-        {countdown && state.screen !== 'upload' && state.screen !== 'time' && (
+        {state.screen === 'session' && state.session ? (
           <div className="head-right">
-            {state.session &&
-              (() => {
-                const rem = Math.max(0, new Date(state.session.until) - Date.now())
-                const m = Math.floor(rem / 60000)
-                const sec = String(Math.floor((rem % 60000) / 1000)).padStart(2, '0')
-                const rec = sessionRecommendation(state.session)
-                return (
-                  <div
-                    className="countdown-chip session-chip"
-                    title="Your study session — the recommendation follows the 30/70 rule: read first, then spend most of your time on recall"
-                  >
-                    📚 {m}:{sec} left · now:{' '}
-                    {rec === 'study' ? '📖 study' : '🧠 active recall'}
+            {(() => {
+              const rem = Math.max(0, new Date(state.session.until) - Date.now())
+              const pad = (n) => String(n).padStart(2, '0')
+              const h = Math.floor(rem / 3600000)
+              const m = Math.floor((rem % 3600000) / 60000)
+              const sec = Math.floor((rem % 60000) / 1000)
+              const left = h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`
+              const rec = sessionRecommendation(state.session)
+              const base = state.session.base || { study: 0, active: 0 }
+              const read = Math.max(0, (state.timeSpent?.study || 0) - base.study)
+              const recall = Math.max(0, (state.timeSpent?.active || 0) - base.active)
+              const tracked = read + recall
+              const readPct = tracked ? Math.round((read / tracked) * 100) : 0
+              return (
+                <div className="tl-pop">
+                  <div className="countdown-chip session-chip">
+                    <span className="chip-text">
+                      📚 {left} left · now:{' '}
+                      {rec === 'study' ? '📖 study' : '🧠 active recall'}
+                    </span>
+                    <button className="chip-end" onClick={endSession}>
+                      End ✕
+                    </button>
                   </div>
-                )
-              })()}
-            <div className={`tl-pop ${tlPinned ? 'pinned' : ''}`}>
-              <button
-                className="countdown-chip"
-                onClick={() => setTlPinned((p) => !p)}
-                title="Hover or click for your full timeline"
-              >
-                ⏲️ {countdown.text} until test time
-              </button>
-              {state.plan && (
-                <div className="tl-panel">
-                  <TimelinePanel
-                    plan={state.plan}
-                    testTime={state.testTime}
-                    results={state.results}
-                    onSleepChange={(sleeps) =>
-                      setState((s) => ({ ...s, plan: { ...s.plan, sleeps } }))
-                    }
-                    onDragStart={() => setTlPinned(true)}
-                  />
+                  <div className="tl-panel chip-tip">
+                    <strong>Your mix this session</strong>
+                    {tracked > 0 ? (
+                      <>
+                        <div className="split-track">
+                          <span className="split-study" style={{ width: `${readPct}%` }} />
+                          <span
+                            className="split-active"
+                            style={{ width: `${100 - readPct}%` }}
+                          />
+                        </div>
+                        <p className="split-nums">
+                          📖 rereading <strong>{readPct}%</strong> · 🧠 active recall{' '}
+                          <strong>{100 - readPct}%</strong>
+                        </p>
+                        <p className="muted small">
+                          Aim for about 30/70 — pulling it back out is what makes it stick.
+                        </p>
+                      </>
+                    ) : (
+                      <p className="muted small">Nothing tracked yet — dig in!</p>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
+              )
+            })()}
           </div>
+        ) : (
+          countdown &&
+          state.screen !== 'upload' &&
+          state.screen !== 'time' && (
+            <div className="head-right">
+              <div className={`tl-pop ${tlPinned ? 'pinned' : ''}`}>
+                <button
+                  className="countdown-chip"
+                  onClick={() => setTlPinned((p) => !p)}
+                  title="Hover or click for your full timeline"
+                >
+                  ⏲️ {countdown.text} until test time
+                </button>
+                {state.plan && (
+                  <div className="tl-panel">
+                    <TimelinePanel
+                      plan={state.plan}
+                      testTime={state.testTime}
+                      results={state.results}
+                      onSleepChange={(sleeps) =>
+                        setState((s) => ({ ...s, plan: { ...s.plan, sleeps } }))
+                      }
+                      onDragStart={() => setTlPinned(true)}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )
         )}
       </header>
 

@@ -9,6 +9,7 @@ export default function FlashcardsView({
   onFinish,
   onBack,
   embedded = false,
+  headerExtra = null,
 }) {
   const cards = version.flashcards
   const [idx, setIdx] = useState(0)
@@ -69,7 +70,10 @@ export default function FlashcardsView({
             Notes closed. Answer <em>before</em> you flip — the reach is the workout.
           </p>
         </div>
-        <span className="pill">{card.topic}</span>
+        <div className="head-side">
+          {headerExtra}
+          <span className="pill">{card.topic}</span>
+        </div>
       </div>
 
       <VersionPicker versions={versions} activeVersion={activeVersion} onPick={onPickVersion} />

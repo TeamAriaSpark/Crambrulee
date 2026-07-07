@@ -1,14 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import StudyView from './StudyView.jsx'
 import FlashcardsView from './FlashcardsView.jsx'
 import { TIPS } from '../lib/planner.js'
+import { setAmbient } from '../lib/ambient.js'
 
 const fmtSpent = (sec) => {
   if (sec < 60) return '<1 min'
   const min = Math.round(sec / 60)
   return min >= 90 ? `${Math.round(min / 6) / 10} h` : `${min} min`
 }
-const tally = (sec) => (sec > 0 ? fmtSpent(sec) : '0 min')
 
 // The 30/70 recommendation: spend the first ~30% of the session reading,
 // the rest pulling it back out.
@@ -54,35 +54,39 @@ export default function SessionView({
     : 0
   const tip = TIPS[Math.floor(breakElapsedSec / 40) % TIPS.length]
 
+  // Ambient music is synthesized locally; stop it when the session unmounts.
+  const [music, setMusic] = useState('off')
+  useEffect(() => {
+    setAmbient(music)
+    return () => setAmbient('off')
+  }, [music])
+
+  const other = mode === 'study' ? 'recall' : 'study'
+  const headerExtra = (
+    <div className="session-tools">
+      <button className="mode-switch" onClick={() => onMode(other)}>
+        {other === 'recall' ? 'Switch to active recall 🧠' : 'Switch to studying 📖'}
+        {recommended === other && <span className="mode-rec">recommended now</span>}
+      </button>
+      <label className="music-pick" title="Ambient study music, cooked up right in your browser">
+        <span>🎵</span>
+        <select value={music} onChange={(e) => setMusic(e.target.value)}>
+          <option value="off">music off</option>
+          <option value="lofi">📻 lo-fi pad</option>
+          <option value="rain">🌧️ rain</option>
+          <option value="waves">🌊 waves</option>
+          <option value="focus">🟤 deep focus</option>
+        </select>
+      </label>
+    </div>
+  )
+
   return (
     <>
-      <div className="card session-bar">
-        <div className="mode-toggle">
-          <button
-            className={`mode-btn ${mode === 'study' ? 'on' : ''}`}
-            onClick={() => onMode('study')}
-          >
-            📖 Study
-            <span className="action-tally">{tally(timeSpent?.study || 0)}</span>
-            {recommended === 'study' && <span className="mode-rec">recommended now</span>}
-          </button>
-          <button
-            className={`mode-btn recall ${mode === 'recall' ? 'on' : ''}`}
-            onClick={() => onMode('recall')}
-          >
-            🧠 Active recall
-            <span className="action-tally hot-tally">{tally(timeSpent?.active || 0)}</span>
-            {recommended === 'recall' && <span className="mode-rec">recommended now</span>}
-          </button>
-        </div>
-        <button className="btn ghost small-btn" onClick={onEnd}>
-          End session
-        </button>
-      </div>
-
       {mode === 'study' ? (
         <StudyView
           embedded
+          headerExtra={headerExtra}
           version={version}
           versions={versions}
           activeVersion={activeVersion}
@@ -93,6 +97,7 @@ export default function SessionView({
       ) : (
         <FlashcardsView
           embedded
+          headerExtra={headerExtra}
           version={version}
           versions={versions}
           activeVersion={activeVersion}
@@ -109,7 +114,15 @@ export default function SessionView({
               <>
                 <h3>🎉 Session complete!</h3>
                 <p className="muted">
-                  {fmtSpent((timeSpent?.study || 0) + (timeSpent?.active || 0))} of real work in
+                  {fmtSpent(
+                    Math.max(
+                      0,
+                      (timeSpent?.study || 0) +
+                        (timeSpent?.active || 0) -
+                        (session.base ? session.base.study + session.base.active : 0)
+                    )
+                  )}{' '}
+                  of real work in
                   the books. Lock it in with a practice test — it rebuilds your materials around
                   what you missed.
                 </p>

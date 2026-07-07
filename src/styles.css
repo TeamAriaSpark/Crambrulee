@@ -347,9 +347,31 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 
 /* masthead right: session chip + countdown with timeline popover */
 .head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-.session-chip { background: linear-gradient(135deg, #7fbf6f, #4e9a51); }
+.session-chip {
+  background: linear-gradient(135deg, #7fbf6f, #4e9a51);
+  display: flex; align-items: center; gap: 12px; cursor: default;
+}
+.chip-text { white-space: nowrap; }
+.session-chip .chip-end { flex-shrink: 0; }
+.chip-end {
+  font: inherit; font-size: 0.78rem; font-weight: 800; cursor: pointer;
+  color: #fff; background: rgba(255, 255, 255, 0.18);
+  border: 1.5px solid rgba(255, 255, 255, 0.55); border-radius: 999px;
+  padding: 3px 12px; transition: background 0.12s ease;
+}
+.chip-end:hover { background: rgba(255, 255, 255, 0.32); }
+.tl-panel.chip-tip { width: 300px; padding: 16px 20px; }
+.chip-tip p { margin: 0; }
+.chip-tip .split-nums { margin: 0 0 4px; font-size: 0.92rem; }
+.split-track {
+  display: flex; height: 12px; border-radius: 999px; overflow: hidden;
+  margin: 10px 0 8px; background: var(--custard);
+}
+.split-study { background: var(--step-study); }
+.split-active { background: var(--step-test); }
 .tl-pop { position: relative; }
 .tl-pop > .countdown-chip { font: inherit; font-weight: 700; border: none; cursor: pointer; display: block; }
+.tl-pop > .session-chip { display: flex; cursor: default; }
 .tl-panel {
   display: none; position: absolute; right: 0; top: calc(100% + 10px); z-index: 40;
   width: min(760px, calc(100vw - 40px));
@@ -367,27 +389,41 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 .start-box h3 { margin: 0 0 4px; font-size: 1.2rem; }
 .len-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0 14px; }
 .inline-num {
-  width: 52px; font: inherit; font-size: 0.85rem; font-weight: 700; text-align: center;
+  width: 62px; font: inherit; font-size: 0.85rem; font-weight: 700; text-align: center;
   border: 1.5px solid var(--line); border-radius: 999px; padding: 2px 6px;
   background: var(--card);
 }
 .start-btn { font-size: 1.05rem; padding: 14px 34px; }
+.gauge { margin: 12px 0 2px; }
+.gauge-track {
+  height: 12px; border-radius: 999px; background: var(--card);
+  border: 1.5px solid var(--custard-deep); overflow: hidden;
+}
+.gauge-fill {
+  height: 100%; border-radius: 999px; min-width: 0;
+  background: linear-gradient(90deg, var(--custard-deep), var(--crust));
+  transition: width 0.4s ease;
+}
+.gauge-fill.full { background: linear-gradient(90deg, #7fbf6f, #4e9a51); }
+.gauge-label { display: block; margin-top: 5px; font-size: 0.8rem; color: var(--cocoa-soft); }
 
 /* study session page */
-.session-bar {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap; padding: 14px 18px;
+.session-tools { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.head-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.mode-switch {
+  position: relative; font: inherit; font-weight: 800; font-size: 0.9rem; cursor: pointer;
+  border: 2px solid var(--caramel); background: var(--custard); color: var(--caramel-deep);
+  border-radius: 999px; padding: 9px 18px; transition: all 0.12s ease; white-space: nowrap;
 }
-.mode-toggle { display: flex; gap: 8px; flex-wrap: wrap; }
-.mode-btn {
-  position: relative; font: inherit; font-weight: 800; cursor: pointer;
-  display: flex; align-items: center; gap: 8px;
-  border: 2px solid var(--line); background: var(--card);
-  border-radius: 999px; padding: 9px 18px 9px 16px; transition: all 0.12s ease;
+.mode-switch:hover { background: var(--custard-deep); }
+.music-pick {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem;
 }
-.mode-btn:hover { border-color: var(--custard-deep); }
-.mode-btn.on { border-color: var(--caramel); background: var(--custard); }
-.mode-btn.recall.on { border-color: var(--step-test); background: #fff0e6; }
+.music-pick select {
+  font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer;
+  border: 1.5px solid var(--line); border-radius: 999px; padding: 4px 10px;
+  background: var(--card); color: var(--cocoa);
+}
 .mode-rec {
   position: absolute; top: -9px; right: 10px;
   font-size: 0.6rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
@@ -426,13 +462,6 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 }
 .suggest-in { font-size: 0.9rem; font-weight: 700; color: var(--bad); }
 
-.action-tally {
-  font-size: 0.74rem; font-weight: 800; color: var(--caramel-deep);
-  background: var(--custard); border-radius: 999px; padding: 2px 10px;
-  font-variant-numeric: tabular-nums;
-}
-.action-tally.hot-tally { background: #ffe3d6; color: var(--bad); }
-
 /* break timer — one compact strip */
 .break-card {
   margin-top: 12px; border: 1.5px dashed var(--step-break); border-radius: 14px;
@@ -444,7 +473,7 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 .break-tally { margin-left: auto; }
 .break-custom { display: inline-flex; align-items: center; gap: 5px; }
 .break-custom input {
-  width: 52px; font: inherit; font-size: 0.85rem; font-weight: 700; text-align: center;
+  width: 62px; font: inherit; font-size: 0.85rem; font-weight: 700; text-align: center;
   border: 1.5px solid var(--line); border-radius: 999px; padding: 5px 6px;
   background: var(--card);
 }
