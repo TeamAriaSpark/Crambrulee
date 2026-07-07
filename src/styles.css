@@ -123,14 +123,43 @@ h3 { margin: 0 0 4px; font-size: 1.05rem; }
 }
 
 /* proportional line timeline: now → test time */
-.line-timeline { position: relative; height: 96px; margin: 30px 10px 0; }
-.lt-study {
-  position: absolute; top: -16px; transform: translateX(-50%);
-  font-size: 0.66rem; font-weight: 800; color: var(--caramel-deep);
-  background: var(--custard); border-radius: 999px; padding: 2px 9px;
-  white-space: nowrap; z-index: 1;
+.line-timeline { position: relative; height: 96px; margin: 26px 10px 0; }
+.lt-study-wrap { display: contents; }
+.lt-studyspan {
+  position: absolute; top: 24px; height: 18px; border-radius: 999px;
+  background: linear-gradient(90deg, #fbe3ab, #f6c453);
+  border: 1.5px solid var(--caramel);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; z-index: 1; transition: filter 0.12s ease;
 }
-.lt-study.past { opacity: 0.4; }
+.lt-studyspan:hover { filter: brightness(1.06); }
+.lt-studyspan.past { opacity: 0.45; }
+.lt-studyspan-text {
+  font-size: 0.66rem; font-weight: 800; color: var(--caramel-deep);
+  white-space: nowrap; line-height: 1; pointer-events: none;
+}
+.lt-studyspan:hover ~ .lt-tooltip { display: block; }
+.lt-start {
+  position: absolute; top: -18px; left: 0;
+  font-size: 0.68rem; font-weight: 800; color: var(--cocoa-soft);
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.lt-now-time {
+  display: block; font-size: 0.66rem; font-weight: 700; color: var(--cocoa-soft);
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.lt-mtip {
+  display: none; position: absolute; top: 36px; left: 50%; transform: translateX(-50%);
+  width: max-content; max-width: 270px; z-index: 8;
+  background: var(--cocoa); color: #fff8ee; font-size: 0.78rem; font-weight: 500;
+  line-height: 1.45; text-align: left; white-space: normal;
+  border-radius: 12px; padding: 9px 13px; box-shadow: 0 8px 24px rgba(62, 42, 22, 0.35);
+  pointer-events: none;
+}
+.lt-mtip strong { color: #ffd88f; }
+.lt-mtip.edge-r { left: auto; right: -12px; transform: none; }
+.lt-mtip.edge-l { left: -12px; transform: none; }
+.lt-marker:hover .lt-mtip { display: block; }
 .tl-inline { margin-top: 4px; }
 .line-timeline.tall { height: 130px; }
 .lt-track {

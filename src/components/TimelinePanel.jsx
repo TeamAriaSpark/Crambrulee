@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { suggestSleeps, suggestedStudyMin } from '../lib/planner.js'
+import { suggestSleeps, suggestedStudyMin, INTENSITY } from '../lib/planner.js'
 
 const clock = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
@@ -41,7 +41,19 @@ export default function TimelinePanel({
       icon: i < taken ? '✓' : '🔥',
       name: `Test ${t.n}`,
       cls: `${i < taken ? 'past' : ''} ${i === taken ? 'next' : ''}`,
-      title: `Practice test ${t.n} — suggested ${clockFull(t.suggestedAt)}`,
+      tip:
+        i < taken ? (
+          <>
+            <strong>✓ Practice test {t.n}</strong> — taken. The refry that followed doubled
+            down on what you missed.
+          </>
+        ) : (
+          <>
+            <strong>🔥 Practice test {t.n}</strong> — suggested {clockFull(t.suggestedAt)}. It
+            simulates the real thing, then your materials are rebuilt around what you miss.
+            Score 80%+ to level up.
+          </>
+        ),
     })),
     {
       key: 'end',
@@ -49,24 +61,51 @@ export default function TimelinePanel({
       icon: '🎓',
       name: 'Your test',
       cls: 'end',
-      title: `Test time · ${clockFull(plan.testAt || testTime)}`,
+      tip: (
+        <>
+          <strong>🎓 Your real test</strong> — {clockFull(plan.testAt || testTime)}. We stop
+          suggesting study ~45 min before: one calm review, then walk in rested.
+        </>
+      ),
     },
   ]
   // Suggested study between consecutive milestones (start → tests → final
-  // review), skipping stretches too narrow to label.
+  // review), drawn on the line itself in the awake gaps around sleep.
   const segPoints = [plan.startedAt, ...tests.map((t) => t.suggestedAt), plan.finalReviewAt]
-  const studySegs = []
+  const studyStretches = []
   for (let i = 0; i < segPoints.length - 1; i++) {
-    const a = pos(segPoints[i])
-    const b = pos(segPoints[i + 1])
-    if (b - a < 9) continue
-    studySegs.push({
-      key: `seg-${i}`,
-      mid: (a + b) / 2,
+    const fromMs = new Date(segPoints[i]).getTime()
+    const toMs = new Date(segPoints[i + 1]).getTime()
+    if (toMs <= fromMs) continue
+    // Split the stretch into awake sub-intervals by carving out sleep.
+    let parts = [[fromMs, toMs]]
+    for (const s of sleeps) {
+      const sa = new Date(s.from).getTime()
+      const sb = new Date(s.to).getTime()
+      parts = parts.flatMap(([a, b]) => {
+        if (sb <= a || sa >= b) return [[a, b]]
+        const kept = []
+        if (sa > a) kept.push([a, sa])
+        if (sb < b) kept.push([sb, b])
+        return kept
+      })
+    }
+    const awakeMin = parts.reduce((m, [a, b]) => m + (b - a) / 60000, 0)
+    const pct = parts
+      .map(([a, b]) => ({ a: pos(new Date(a).toISOString()), b: pos(new Date(b).toISOString()) }))
+      .filter((p) => p.b - p.a >= 2)
+    if (!pct.length) continue
+    const widest = pct.reduce((w, p) => (p.b - p.a > w.b - w.a ? p : w))
+    studyStretches.push({
+      key: `stretch-${i}`,
+      parts: pct,
+      widest,
       min: suggestedStudyMin(segPoints[i], segPoints[i + 1], sleeps, intensity),
+      awakeMin: Math.round(awakeMin),
       past: i < taken,
     })
   }
+  const intensityMeta = INTENSITY[intensity] || INTENSITY.steady
 
   let lastTopRow = -Infinity
   const markers = markerList.map((m) => {
@@ -150,37 +189,66 @@ export default function TimelinePanel({
             </div>
           )
         })}
-        {studySegs.map((s) => (
-          <span
-            key={s.key}
-            className={`lt-study ${s.past ? 'past' : ''}`}
-            style={{ left: `${s.mid}%` }}
-            title="Suggested study time for this stretch — set by your intensity"
-          >
-            📖 ~{fmtMin(s.min)}
-          </span>
+        {studyStretches.map((st) => (
+          <div key={st.key} className="lt-study-wrap">
+            {st.parts.map((p, j) => {
+              const w = p.b - p.a
+              const labeled = p === st.widest
+              return (
+                <div
+                  key={j}
+                  className={`lt-studyspan ${st.past ? 'past' : ''}`}
+                  style={{ left: `${p.a}%`, width: `${w}%` }}
+                >
+                  <span className="lt-studyspan-text">
+                    {labeled && w >= 11 ? `📖 ~${fmtMin(st.min)}` : labeled && w >= 4 ? '📖' : ''}
+                  </span>
+                </div>
+              )
+            })}
+            <div
+              className="lt-tooltip"
+              style={{
+                left: `${Math.min(Math.max((st.widest.a + st.widest.b) / 2, 16), 84)}%`,
+              }}
+            >
+              <strong>📖 ~{fmtMin(st.min)} of study suggested</strong> in this stretch — about{' '}
+              {Math.min(100, Math.round((st.min / Math.max(st.awakeMin, 1)) * 100))}% of the ~
+              {fmtMin(st.awakeMin)} you’re awake ({intensityMeta.emoji} {intensityMeta.label}{' '}
+              intensity).
+              <span className="lt-tooltip-hint">
+                Aim for ~30% reading, 70% active recall — and take the practice test at the end.
+              </span>
+            </div>
+          </div>
         ))}
         {markers.map((m) => (
           <div
             key={m.key}
             className={`lt-marker ${m.cls} ${m.row === 'b' ? 'rowb' : ''}`}
             style={{ left: `${m.p}%` }}
-            title={m.title}
           >
             <span className="lt-icon">{m.icon}</span>
             <span className="lt-tag">
               <span className="lt-name">{m.name}</span>
               <span className="lt-label">{clock(m.at)}</span>
             </span>
+            <span className={`lt-mtip ${m.p > 78 ? 'edge-r' : m.p < 8 ? 'edge-l' : ''}`}>
+              {m.tip}
+            </span>
           </div>
         ))}
+        <span className="lt-start" title="When you started this cram plan">
+          started {clock(plan.startedAt)}
+        </span>
         <div className="lt-now" style={{ left: `${Math.min(Math.max(nowPct, 4), 92)}%` }}>
           <span className="lt-now-dot" />
           <span className="lt-now-label">now</span>
+          <span className="lt-now-time">{clock(new Date().toISOString())}</span>
         </div>
       </div>
       <p className="lt-legend muted small">
-        🔥 practice test · 📖 suggested study per stretch{sleeps.length > 0 && <> · 💤 suggested sleep (hover for the science, drag to adjust)</>} · 🎓 your real test
+        🔥 practice test · 📖 suggested study, drawn on the line{sleeps.length > 0 && <> · 💤 suggested sleep (drag the ends to adjust)</>} · 🎓 your real test — hover anything for details
       </p>
     </>
   )
