@@ -32,6 +32,7 @@ export default function StudyView({
   onPickVersion,
   onFinish,
   onBack,
+  embedded = false,
 }) {
   const [tab, setTab] = useState('summary')
   const blocks = tab === 'summary' ? version.summary : version.cheatSheet
@@ -63,7 +64,7 @@ export default function StudyView({
           </p>
           {version.note && <p className="cook-note">⚠️ {version.note}</p>}
         </div>
-        <SessionTimer minutes={25} />
+        {!embedded && <SessionTimer minutes={25} />}
       </div>
 
       <VersionPicker versions={versions} activeVersion={activeVersion} onPick={onPickVersion} />
@@ -97,14 +98,16 @@ export default function StudyView({
         </div>
       ))}
 
-      <div className="step-row">
-        <button className="btn ghost" onClick={onBack}>
-          ← Back to plan
-        </button>
-        <button className="btn" onClick={onFinish}>
-          Time’s up → active recall 🧠
-        </button>
-      </div>
+      {!embedded && (
+        <div className="step-row">
+          <button className="btn ghost" onClick={onBack}>
+            ← Back to plan
+          </button>
+          <button className="btn" onClick={onFinish}>
+            Time’s up → active recall 🧠
+          </button>
+        </div>
+      )}
     </div>
   )
 }

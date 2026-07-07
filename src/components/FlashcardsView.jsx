@@ -8,6 +8,7 @@ export default function FlashcardsView({
   onPickVersion,
   onFinish,
   onBack,
+  embedded = false,
 }) {
   const cards = version.flashcards
   const [idx, setIdx] = useState(0)
@@ -52,7 +53,7 @@ export default function FlashcardsView({
             </button>
           )}
           <button className={`btn ${redo.length > 0 ? 'ghost' : ''}`} onClick={onFinish}>
-            Back to the plan →
+            {embedded ? 'Switch to studying 📖' : 'Back to the plan →'}
           </button>
         </div>
       </div>
@@ -113,11 +114,13 @@ export default function FlashcardsView({
         Card {idx + 1} of {queue.length}
       </div>
 
-      <div className="step-row">
-        <button className="btn ghost small-btn" onClick={onBack}>
-          ← Back to plan
-        </button>
-      </div>
+      {!embedded && (
+        <div className="step-row">
+          <button className="btn ghost small-btn" onClick={onBack}>
+            ← Back to plan
+          </button>
+        </div>
+      )}
     </div>
   )
 }

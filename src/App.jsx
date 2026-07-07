@@ -3,6 +3,8 @@ import Upload from './components/Upload.jsx'
 import TimeSelect from './components/TimeSelect.jsx'
 import Cooking, { COOK_STEPS, REFRY_STEPS } from './components/Cooking.jsx'
 import PlanView from './components/PlanView.jsx'
+import SessionView, { sessionRecommendation } from './components/SessionView.jsx'
+import TimelinePanel from './components/TimelinePanel.jsx'
 import StudyView from './components/StudyView.jsx'
 import FlashcardsView from './components/FlashcardsView.jsx'
 import TestView from './components/TestView.jsx'
@@ -24,6 +26,7 @@ const emptyState = {
   results: [], // { versionId, score, total, byTopic, weakTopics, at }
   timeSpent: { study: 0, active: 0, break: 0 }, // seconds actually spent on each kind of task
   breakTimer: null, // { startedAt, lengthMin, until } while a break is running/over
+  session: null, // { startedAt, lengthMin, until, breakEveryMin, nextBreakAt, mode }
   level: 'novice', // novice | competent | expert — advances on strong practice-test scores
 }
 
@@ -58,15 +61,21 @@ function useCountdown(testTime) {
 export default function App() {
   const [state, setState] = useState(loadState)
   const countdown = useCountdown(state.testTime)
+  const [tlPinned, setTlPinned] = useState(false)
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   }, [state])
 
-  // Track real time on task: study screen counts as reading, flashcards and
+  // Track real time on task: study screens count as reading, flashcards and
   // practice tests count as active recall. Only ticks while the tab is visible.
   useEffect(() => {
-    const bucket = { study: 'study', flashcards: 'active', test: 'active' }[state.screen]
+    const bucket =
+      state.screen === 'session'
+        ? state.session?.mode === 'recall'
+          ? 'active'
+          : 'study'
+        : { study: 'study', flashcards: 'active', test: 'active' }[state.screen]
     if (!bucket) return
     const TICK = 5
     const t = setInterval(() => {
@@ -81,7 +90,7 @@ export default function App() {
       }))
     }, TICK * 1000)
     return () => clearInterval(t)
-  }, [state.screen])
+  }, [state.screen, state.session?.mode])
 
   // Break time tallies while the break timer runs, whatever screen or tab
   // state — the whole point of a break is walking away.
@@ -99,6 +108,18 @@ export default function App() {
     return () => clearInterval(t)
   }, [Boolean(state.breakTimer)])
 
+  // Ending or skipping a break schedules the next one a full interval out.
+  const nextBreakPatch = (s) =>
+    s.session
+      ? {
+          session: {
+            ...s.session,
+            nextBreakAt: new Date(
+              Date.now() + (s.session.breakEveryMin || 45) * 60000
+            ).toISOString(),
+          },
+        }
+      : {}
   const breakHandlers = {
     onBreakStart: (lengthMin) =>
       update({
@@ -122,8 +143,25 @@ export default function App() {
             }
           : s
       ),
-    onBreakEnd: () => update({ breakTimer: null }),
+    onBreakEnd: () => setState((s) => ({ ...s, breakTimer: null, ...nextBreakPatch(s) })),
+    onBreakSkip: () => setState((s) => ({ ...s, ...nextBreakPatch(s) })),
   }
+
+  const startSession = (lengthMin, breakEveryMin) => {
+    const now = Date.now()
+    update({
+      session: {
+        startedAt: new Date(now).toISOString(),
+        lengthMin,
+        until: new Date(now + lengthMin * 60000).toISOString(),
+        breakEveryMin,
+        nextBreakAt: new Date(now + breakEveryMin * 60000).toISOString(),
+        mode: 'study',
+      },
+      screen: 'session',
+    })
+  }
+  const endSession = () => update({ session: null, breakTimer: null, screen: 'plan' })
 
   const update = (patch) => setState((s) => ({ ...s, ...patch }))
 
@@ -238,19 +276,26 @@ export default function App() {
     plan: state.plan && (
       <PlanView
         plan={state.plan}
-        testTime={state.testTime}
         results={state.results}
-        timeSpent={state.timeSpent}
-        breakTimer={state.breakTimer}
-        countdown={countdown}
         level={state.level || 'novice'}
         onLevelChange={handleLevelChange}
-        onStudy={() => update({ screen: 'study' })}
-        onRecall={() => update({ screen: 'flashcards' })}
+        onStartSession={startSession}
         onTest={() => update({ screen: 'test' })}
-        onSleepChange={(sleeps) =>
-          setState((s) => ({ ...s, plan: { ...s.plan, sleeps } }))
+      />
+    ),
+    session: state.session && currentVersion && (
+      <SessionView
+        session={state.session}
+        breakTimer={state.breakTimer}
+        timeSpent={state.timeSpent}
+        versions={state.versions}
+        activeVersion={state.activeVersion}
+        onPickVersion={(i) => update({ activeVersion: i })}
+        onMode={(mode) =>
+          setState((s) => (s.session ? { ...s, session: { ...s.session, mode } } : s))
         }
+        onEnd={endSession}
+        onTest={() => update({ session: null, breakTimer: null, screen: 'test' })}
         {...breakHandlers}
       />
     ),
@@ -329,8 +374,45 @@ export default function App() {
           </span>
         </button>
         {countdown && state.screen !== 'upload' && state.screen !== 'time' && (
-          <div className="countdown-chip" title="Time until your test">
-            ⏲️ {countdown.text} until test time
+          <div className="head-right">
+            {state.session &&
+              (() => {
+                const rem = Math.max(0, new Date(state.session.until) - Date.now())
+                const m = Math.floor(rem / 60000)
+                const sec = String(Math.floor((rem % 60000) / 1000)).padStart(2, '0')
+                const rec = sessionRecommendation(state.session)
+                return (
+                  <div
+                    className="countdown-chip session-chip"
+                    title="Your study session — the recommendation follows the 30/70 rule: read first, then spend most of your time on recall"
+                  >
+                    📚 {m}:{sec} left · now:{' '}
+                    {rec === 'study' ? '📖 study' : '🧠 active recall'}
+                  </div>
+                )
+              })()}
+            <div className={`tl-pop ${tlPinned ? 'pinned' : ''}`}>
+              <button
+                className="countdown-chip"
+                onClick={() => setTlPinned((p) => !p)}
+                title="Hover or click for your full timeline"
+              >
+                ⏲️ {countdown.text} until test time
+              </button>
+              {state.plan && (
+                <div className="tl-panel">
+                  <TimelinePanel
+                    plan={state.plan}
+                    testTime={state.testTime}
+                    results={state.results}
+                    onSleepChange={(sleeps) =>
+                      setState((s) => ({ ...s, plan: { ...s.plan, sleeps } }))
+                    }
+                    onDragStart={() => setTlPinned(true)}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         )}
       </header>
