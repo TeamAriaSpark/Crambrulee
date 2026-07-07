@@ -11,7 +11,7 @@ import TestView from './components/TestView.jsx'
 import ResultsView from './components/ResultsView.jsx'
 import { generateMaterials, LEVELS } from './lib/engine.js'
 import { generateMaterialsAI, hasApiKey } from './lib/ai.js'
-import { generatePlan } from './lib/planner.js'
+import { generatePlan, suggestedStudyMin } from './lib/planner.js'
 
 const STORAGE_KEY = 'cram-brulee-v5' // v5: loose plan — suggested test times only
 
@@ -27,19 +27,23 @@ const emptyState = {
   timeSpent: { study: 0, active: 0, break: 0 }, // seconds actually spent on each kind of task
   breakTimer: null, // { startedAt, lengthMin, until } while a break is running/over
   session: null, // { startedAt, lengthMin, until, breakEveryMin, nextBreakAt, mode, base }
-  sessionGoal: null, // { targetMin, baseSpent, testN } — recommended study before the next test
+  sessionGoal: null, // { targetMin, base: {study, active}, testN } — suggested study before the next test
+  intensity: 'steady', // chill | steady | intense — scales suggested study time
   level: 'novice', // novice | competent | expert — advances on strong practice-test scores
 }
 
-// The study-time gauge target: minutes from now until the next untaken
-// practice test, frozen at plan creation / after each test so the gauge
-// fills steadily as sessions are completed.
-function goalFrom(plan, testsTaken, timeSpent) {
+// The study-time gauge target: how much study we suggest between now and the
+// next untaken practice test (intensity-scaled awake time), frozen at plan
+// creation / after each test so the gauge fills steadily.
+function goalFrom(plan, testsTaken, timeSpent, intensity) {
   const next = plan?.tests?.[testsTaken] || null
-  const raw = next ? (new Date(next.suggestedAt) - Date.now()) / 60000 : 60
+  const until = next ? next.suggestedAt : plan?.finalReviewAt
+  const suggested = until
+    ? suggestedStudyMin(new Date().toISOString(), until, plan?.sleeps || [], intensity)
+    : 60
   return {
-    targetMin: Math.min(300, Math.max(15, Math.round(raw / 5) * 5)),
-    baseSpent: (timeSpent?.study || 0) + (timeSpent?.active || 0),
+    targetMin: Math.min(600, Math.max(15, suggested)),
+    base: { study: timeSpent?.study || 0, active: timeSpent?.active || 0 },
     testN: next?.n || null,
   }
 }
@@ -81,12 +85,13 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   }, [state])
 
-  // Plans saved before the gauge existed have no goal — backfill one.
+  // Plans saved before the gauge existed (or before it split reading vs
+  // recall) have no usable goal — backfill one.
   useEffect(() => {
-    if (!state.plan || state.sessionGoal) return
+    if (!state.plan || state.sessionGoal?.base) return
     setState((s) =>
-      s.plan && !s.sessionGoal
-        ? { ...s, sessionGoal: goalFrom(s.plan, s.results.length, s.timeSpent) }
+      s.plan && !s.sessionGoal?.base
+        ? { ...s, sessionGoal: goalFrom(s.plan, s.results.length, s.timeSpent, s.intensity) }
         : s
     )
   }, [state.plan, state.sessionGoal])
@@ -268,7 +273,7 @@ export default function App() {
       setState((s) => ({
         ...s,
         plan,
-        sessionGoal: goalFrom(plan, 0, s.timeSpent),
+        sessionGoal: goalFrom(plan, 0, s.timeSpent, s.intensity),
         versions: [fresh],
         activeVersion: 0,
         cookingJob: null,
@@ -289,8 +294,8 @@ export default function App() {
     time: (
       <TimeSelect
         onBack={() => update({ screen: 'upload' })}
-        onDone={(testTime) =>
-          update({ testTime, cookingJob: { kind: 'initial' }, screen: 'cooking' })
+        onDone={(testTime, intensity) =>
+          update({ testTime, intensity, cookingJob: { kind: 'initial' }, screen: 'cooking' })
         }
       />
     ),
@@ -306,24 +311,25 @@ export default function App() {
     plan: state.plan && (
       <PlanView
         plan={state.plan}
+        testTime={state.testTime}
         results={state.results}
-        gauge={
-          state.sessionGoal && {
-            doneMin: Math.max(
-              0,
-              Math.round(
-                ((state.timeSpent?.study || 0) +
-                  (state.timeSpent?.active || 0) -
-                  state.sessionGoal.baseSpent) /
-                  60
-              )
-            ),
-            targetMin: state.sessionGoal.targetMin,
-            testN: state.sessionGoal.testN,
+        intensity={state.intensity || 'steady'}
+        gauge={(() => {
+          const g = state.sessionGoal
+          if (!g?.base) return null
+          const readSec = Math.max(0, (state.timeSpent?.study || 0) - g.base.study)
+          const recallSec = Math.max(0, (state.timeSpent?.active || 0) - g.base.active)
+          return {
+            doneMin: Math.round((readSec + recallSec) / 60),
+            targetMin: g.targetMin,
+            testN: g.testN,
+            readSec,
+            recallSec,
           }
-        }
+        })()}
         level={state.level || 'novice'}
         onLevelChange={handleLevelChange}
+        onSleepChange={(sleeps) => setState((s) => ({ ...s, plan: { ...s.plan, sleeps } }))}
         onStartSession={startSession}
         onTest={() => update({ screen: 'test' })}
       />
@@ -382,7 +388,7 @@ export default function App() {
               level: leveledUp || currentLevel,
               results,
               // Fresh gauge target for the stretch to the next practice test.
-              sessionGoal: goalFrom(s.plan, results.length, s.timeSpent),
+              sessionGoal: goalFrom(s.plan, results.length, s.timeSpent, s.intensity),
               screen: 'results',
             }
           })
@@ -493,6 +499,7 @@ export default function App() {
                       plan={state.plan}
                       testTime={state.testTime}
                       results={state.results}
+                      intensity={state.intensity || 'steady'}
                       onSleepChange={(sleeps) =>
                         setState((s) => ({ ...s, plan: { ...s.plan, sleeps } }))
                       }

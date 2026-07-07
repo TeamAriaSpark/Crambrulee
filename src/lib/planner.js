@@ -42,6 +42,50 @@ export const TIPS = [
 
 const addMin = (d, m) => new Date(d.getTime() + m * 60000)
 
+// Cramming intensity: what share of your awake time between practice tests
+// we suggest actually spending on study.
+export const INTENSITY = {
+  chill: {
+    emoji: '🍦',
+    label: 'Chill',
+    factor: 0.35,
+    blurb: 'lighter suggestions — plenty of slack between practice tests',
+  },
+  steady: {
+    emoji: '🍳',
+    label: 'Steady',
+    factor: 0.55,
+    blurb: 'a balanced amount of study before each practice test',
+  },
+  intense: {
+    emoji: '🔥',
+    label: 'Full flame',
+    factor: 0.78,
+    blurb: 'packs most of your awake time with study',
+  },
+}
+
+// Minutes between two times, minus any overlap with suggested sleep blocks.
+export function awakeMinutes(fromISO, toISO, sleeps = []) {
+  const from = new Date(fromISO).getTime()
+  const to = new Date(toISO).getTime()
+  let min = Math.max(0, (to - from) / 60000)
+  for (const s of sleeps) {
+    const a = Math.max(from, new Date(s.from).getTime())
+    const b = Math.min(to, new Date(s.to).getTime())
+    if (b > a) min -= (b - a) / 60000
+  }
+  return min
+}
+
+// How much study we suggest inside one stretch of the runway, given the
+// chosen intensity.
+export function suggestedStudyMin(fromISO, toISO, sleeps = [], intensity = 'steady') {
+  const factor = (INTENSITY[intensity] || INTENSITY.steady).factor
+  const raw = awakeMinutes(fromISO, toISO, sleeps) * factor
+  return Math.max(10, Math.round(raw / 5) * 5)
+}
+
 // Suggested sleep blocks (23:00–07:00) whenever the window crosses a night
 // with at least a couple of hours to sleep in it. Exported so the plan view
 // can backfill sleeps for sessions saved before this existed.

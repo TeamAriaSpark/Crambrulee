@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { INTENSITY } from '../lib/planner.js'
 
 const PRESETS = [
   { hours: 3, label: 'Tonight' },
@@ -10,6 +11,7 @@ const PRESETS = [
 
 export default function TimeSelect({ onDone, onBack }) {
   const [hours, setHours] = useState(24)
+  const [intensity, setIntensity] = useState('steady')
 
   const testDateLabel = new Date(Date.now() + hours * 3600000).toLocaleString([], {
     weekday: 'long',
@@ -52,13 +54,32 @@ export default function TimeSelect({ onDone, onBack }) {
         ))}
       </div>
 
+      <div className="intensity-row">
+        <label className="intensity-pick">
+          <span className="muted small">Intensity</span>
+          <select value={intensity} onChange={(e) => setIntensity(e.target.value)}>
+            {Object.entries(INTENSITY).map(([key, v]) => (
+              <option key={key} value={key}>
+                {v.emoji} {v.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span className="muted small intensity-blurb">
+          {INTENSITY[intensity].blurb} — it sets how many hours of study we suggest before each
+          practice test.
+        </span>
+      </div>
+
       <div className="step-row">
         <button className="btn ghost" onClick={onBack}>
           ← Back
         </button>
         <button
           className="btn"
-          onClick={() => onDone(new Date(Date.now() + hours * 3600000).toISOString())}
+          onClick={() =>
+            onDone(new Date(Date.now() + hours * 3600000).toISOString(), intensity)
+          }
         >
           Cook up my cram plan 🍳
         </button>

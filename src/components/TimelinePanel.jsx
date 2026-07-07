@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react'
-import { suggestSleeps } from '../lib/planner.js'
+import { suggestSleeps, suggestedStudyMin } from '../lib/planner.js'
 
 const clock = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+
+const fmtMin = (min) => (min >= 90 ? `${Math.round(min / 6) / 10} h` : `${min} min`)
 
 const clockFull = (iso) =>
   new Date(iso).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })
@@ -11,8 +13,16 @@ const SLEEP_SCIENCE =
   'Sleep isn’t lost study time — during deep sleep your brain replays what you learned and files it into long-term memory. Students who sleep before an exam consistently beat the all-nighters.'
 
 // The proportional line timeline (now → test time) with practice-test
-// markers and draggable sleep blocks. Lives in the countdown-chip popover.
-export default function TimelinePanel({ plan, testTime, results, onSleepChange, onDragStart }) {
+// markers, draggable sleep blocks, and per-stretch study suggestions.
+// Shown inline on the plan page and inside the countdown-chip popover.
+export default function TimelinePanel({
+  plan,
+  testTime,
+  results,
+  intensity = 'steady',
+  onSleepChange,
+  onDragStart,
+}) {
   const tests = plan?.tests || []
   const sleeps = plan?.sleeps ?? suggestSleeps(plan.startedAt, plan.finalReviewAt)
   const taken = Math.min(results.length, tests.length)
@@ -42,6 +52,22 @@ export default function TimelinePanel({ plan, testTime, results, onSleepChange, 
       title: `Test time · ${clockFull(plan.testAt || testTime)}`,
     },
   ]
+  // Suggested study between consecutive milestones (start → tests → final
+  // review), skipping stretches too narrow to label.
+  const segPoints = [plan.startedAt, ...tests.map((t) => t.suggestedAt), plan.finalReviewAt]
+  const studySegs = []
+  for (let i = 0; i < segPoints.length - 1; i++) {
+    const a = pos(segPoints[i])
+    const b = pos(segPoints[i + 1])
+    if (b - a < 9) continue
+    studySegs.push({
+      key: `seg-${i}`,
+      mid: (a + b) / 2,
+      min: suggestedStudyMin(segPoints[i], segPoints[i + 1], sleeps, intensity),
+      past: i < taken,
+    })
+  }
+
   let lastTopRow = -Infinity
   const markers = markerList.map((m) => {
     const p = pos(m.at)
@@ -124,6 +150,16 @@ export default function TimelinePanel({ plan, testTime, results, onSleepChange, 
             </div>
           )
         })}
+        {studySegs.map((s) => (
+          <span
+            key={s.key}
+            className={`lt-study ${s.past ? 'past' : ''}`}
+            style={{ left: `${s.mid}%` }}
+            title="Suggested study time for this stretch — set by your intensity"
+          >
+            📖 ~{fmtMin(s.min)}
+          </span>
+        ))}
         {markers.map((m) => (
           <div
             key={m.key}
@@ -144,7 +180,7 @@ export default function TimelinePanel({ plan, testTime, results, onSleepChange, 
         </div>
       </div>
       <p className="lt-legend muted small">
-        🔥 practice test{sleeps.length > 0 && <> · 💤 suggested sleep (hover for the science, drag to adjust)</>} · 🎓 your real test
+        🔥 practice test · 📖 suggested study per stretch{sleeps.length > 0 && <> · 💤 suggested sleep (hover for the science, drag to adjust)</>} · 🎓 your real test
       </p>
     </>
   )

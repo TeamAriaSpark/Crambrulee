@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { LEVELS, LEVEL_META } from '../lib/engine.js'
+import TimelinePanel from './TimelinePanel.jsx'
 import Tour from './Tour.jsx'
 
 const TOUR_KEY = 'cram-brulee-tour-done'
 const TOUR_STEPS = [
   {
-    selector: '.tl-pop',
-    emoji: '⏲️',
-    title: 'Your countdown & timeline',
-    body: 'This ticks down to your test. Hover or click it any time to see your full runway — suggested practice tests and a draggable sleep block.',
+    selector: '.tl-inline',
+    emoji: '⏳',
+    title: 'Your runway to test day',
+    body: 'Practice tests are spaced along your runway, with the suggested study time for each stretch (set by your intensity) and a draggable sleep block. The chip top-right counts down to test time.',
   },
   {
     selector: '.start-box',
@@ -36,6 +37,8 @@ const clock = (iso) =>
 const fmtDuration = (min) =>
   min >= 90 ? `${Math.round(min / 6) / 10} h` : `${min} min`
 
+const fmtSec = (sec) => (sec < 60 ? '<1 min' : fmtDuration(Math.round(sec / 60)))
+
 const fmtIn = (iso) => {
   const min = Math.round((new Date(iso) - Date.now()) / 60000)
   if (min <= 0) return 'now'
@@ -45,10 +48,13 @@ const fmtIn = (iso) => {
 
 export default function PlanView({
   plan,
+  testTime,
   results,
+  intensity,
   gauge,
   level,
   onLevelChange,
+  onSleepChange,
   onStartSession,
   onTest,
 }) {
@@ -56,12 +62,10 @@ export default function PlanView({
   const taken = Math.min(results.length, tests.length)
   const nextTest = tests[taken] || null
 
-  // Recommended session length: study right up to the next practice test.
-  const recMin = nextTest
-    ? Math.min(
-        300,
-        Math.max(15, Math.round((new Date(nextTest.suggestedAt) - Date.now()) / 60000 / 5) * 5)
-      )
+  // Recommended session length: whatever is left of the suggested study
+  // time before the next practice test.
+  const recMin = gauge
+    ? Math.max(15, Math.min(300, Math.round(Math.max(0, gauge.targetMin - gauge.doneMin) / 5) * 5 || 30))
     : 60
   const [sessionLen, setSessionLen] = useState(recMin)
   const [breakEvery, setBreakEvery] = useState(45)
@@ -114,24 +118,37 @@ export default function PlanView({
         />
       )}
 
+      <div className="tl-inline">
+        <TimelinePanel
+          plan={plan}
+          testTime={testTime}
+          results={results}
+          intensity={intensity}
+          onSleepChange={onSleepChange}
+        />
+      </div>
+
       <div className="start-box">
         <h3>📚 Study session</h3>
-        <p className="muted small">
-          Recommended: <strong>{fmtDuration(recMin)}</strong>
-          {nextTest && <> — takes you right up to practice test {nextTest.n}</>}. Break every{' '}
-          <input
-            className="inline-num"
-            type="number"
-            min="10"
-            max="120"
-            value={breakEvery}
-            onChange={(e) =>
-              setBreakEvery(Math.max(10, Math.min(120, Number(e.target.value) || 45)))
-            }
-            aria-label="Break interval in minutes"
-          />{' '}
-          min.
-        </p>
+        {gauge && (
+          <p className="muted small">
+            We suggest <strong>{fmtDuration(gauge.targetMin)}</strong> of study
+            {gauge.testN ? <> before practice test {gauge.testN}</> : <> before your final review</>} —
+            finished sessions fill the gauge below. Break every{' '}
+            <input
+              className="inline-num"
+              type="number"
+              min="10"
+              max="120"
+              value={breakEvery}
+              onChange={(e) =>
+                setBreakEvery(Math.max(10, Math.min(120, Number(e.target.value) || 45)))
+              }
+              aria-label="Break interval in minutes"
+            />{' '}
+            min.
+          </p>
+        )}
         {gauge && (
           <div
             className="gauge"
@@ -147,15 +164,36 @@ export default function PlanView({
             </div>
             <span className="gauge-label">
               {gauge.doneMin >= gauge.targetMin ? (
-                <>✅ recommended study time hit — you’re ready for the test</>
+                <>✅ suggested study time complete — you’re ready for the test</>
               ) : (
                 <>
-                  <strong>{fmtDuration(gauge.doneMin)}</strong> of {fmtDuration(gauge.targetMin)}{' '}
-                  recommended study
+                  <strong>{fmtDuration(gauge.doneMin)}</strong> done of{' '}
+                  {fmtDuration(gauge.targetMin)} suggested
                   {gauge.testN ? ` before practice test ${gauge.testN}` : ''}
                 </>
               )}
             </span>
+          </div>
+        )}
+        {gauge && gauge.readSec + gauge.recallSec > 0 && (
+          <div className="mix-row" title="Your reading vs recall mix — the science says aim for about 30/70">
+            {(() => {
+              const total = gauge.readSec + gauge.recallSec
+              const readPct = Math.round((gauge.readSec / total) * 100)
+              return (
+                <>
+                  <div className="split-track">
+                    <span className="split-study" style={{ width: `${readPct}%` }} />
+                    <span className="split-active" style={{ width: `${100 - readPct}%` }} />
+                  </div>
+                  <span className="gauge-label">
+                    📖 rereading <strong>{readPct}%</strong> ({fmtSec(gauge.readSec)}) · 🧠 active
+                    recall <strong>{100 - readPct}%</strong> ({fmtSec(gauge.recallSec)}) · aim for
+                    ~30/70
+                  </span>
+                </>
+              )
+            })()}
           </div>
         )}
         <div className="len-row">

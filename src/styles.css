@@ -123,7 +123,15 @@ h3 { margin: 0 0 4px; font-size: 1.05rem; }
 }
 
 /* proportional line timeline: now → test time */
-.line-timeline { position: relative; height: 96px; margin: 22px 10px 0; }
+.line-timeline { position: relative; height: 96px; margin: 30px 10px 0; }
+.lt-study {
+  position: absolute; top: -16px; transform: translateX(-50%);
+  font-size: 0.66rem; font-weight: 800; color: var(--caramel-deep);
+  background: var(--custard); border-radius: 999px; padding: 2px 9px;
+  white-space: nowrap; z-index: 1;
+}
+.lt-study.past { opacity: 0.4; }
+.tl-inline { margin-top: 4px; }
 .line-timeline.tall { height: 130px; }
 .lt-track {
   position: absolute; left: 0; right: 0; top: 30px; height: 6px;
@@ -332,6 +340,17 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 }
 .preset-chip:hover { border-color: var(--custard-deep); }
 .preset-chip.selected { border-color: var(--caramel); background: var(--custard); color: var(--caramel-deep); }
+.intensity-row {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  flex-wrap: wrap; margin: 16px 0 4px;
+}
+.intensity-pick { display: inline-flex; align-items: center; gap: 8px; }
+.intensity-pick select {
+  font: inherit; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+  border: 2px solid var(--line); border-radius: 999px; padding: 7px 14px;
+  background: var(--card); color: var(--cocoa);
+}
+.intensity-blurb { max-width: 380px; text-align: left; }
 
 /* ---------- cooking ---------- */
 .cooking { text-align: center; padding: 60px 26px; }
@@ -395,13 +414,15 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 }
 .start-btn { font-size: 1.05rem; padding: 14px 34px; }
 .gauge { margin: 12px 0 2px; }
+.mix-row { margin: 12px 0 2px; }
+.mix-row .split-track { margin: 0 0 5px; background: var(--card); border: 1.5px solid var(--custard-deep); height: 12px; }
 .gauge-track {
   height: 12px; border-radius: 999px; background: var(--card);
   border: 1.5px solid var(--custard-deep); overflow: hidden;
 }
 .gauge-fill {
   height: 100%; border-radius: 999px; min-width: 0;
-  background: linear-gradient(90deg, var(--custard-deep), var(--crust));
+  background: linear-gradient(90deg, #f6c453, #d98324);
   transition: width 0.4s ease;
 }
 .gauge-fill.full { background: linear-gradient(90deg, #7fbf6f, #4e9a51); }
