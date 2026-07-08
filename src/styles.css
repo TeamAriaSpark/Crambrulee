@@ -420,6 +420,13 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 .tl-pop { position: relative; }
 .tl-pop > .countdown-chip { font: inherit; font-weight: 700; border: none; cursor: pointer; display: block; }
 .tl-pop > .session-chip { display: flex; cursor: default; }
+.chip-ring { border-radius: 999px; padding: 3.5px; width: fit-content; margin-left: auto; }
+.session-chip.big { font-size: 1.05rem; padding: 11px 20px; }
+.session-chip.big .chip-end { font-size: 0.84rem; padding: 4px 14px; }
+.chip-tip .chip-total {
+  margin: 0 0 10px; padding-bottom: 8px; font-size: 0.95rem;
+  border-bottom: 1.5px solid var(--line); font-variant-numeric: tabular-nums;
+}
 .tl-panel {
   display: none; position: absolute; right: 0; top: calc(100% + 10px); z-index: 40;
   width: min(760px, calc(100vw - 40px));
@@ -743,6 +750,7 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
   .masthead { flex-direction: column; align-items: flex-start; }
   .head-right { width: 100%; align-items: stretch; }
   .tl-pop > .countdown-chip { width: 100%; text-align: center; }
+  .chip-ring { width: 100%; }
   .tl-pop > .session-chip { justify-content: space-between; font-size: 0.88rem; }
   /* the timeline is too dense for in-bar text on a phone — bars + hover only */
   .lt-sleep-text, .lt-studyspan-text { display: none; }

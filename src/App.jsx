@@ -359,6 +359,9 @@ export default function App() {
             testN: g.testN,
             readSec,
             recallSec,
+            totalDoneMin: Math.round(
+              ((state.timeSpent?.study || 0) + (state.timeSpent?.active || 0)) / 60
+            ),
           }
         })()}
         level={state.level || 'novice'}
@@ -468,12 +471,27 @@ export default function App() {
         {state.screen === 'session' && state.session ? (
           <div className="head-right">
             {(() => {
-              const rem = Math.max(0, new Date(state.session.until) - Date.now())
+              const now = Date.now()
+              const startMs = new Date(state.session.startedAt).getTime()
+              const endMs = new Date(state.session.until).getTime()
+              const rem = Math.max(0, endMs - now)
               const pad = (n) => String(n).padStart(2, '0')
               const h = Math.floor(rem / 3600000)
               const m = Math.floor((rem % 3600000) / 60000)
               const sec = Math.floor((rem % 60000) / 1000)
               const left = h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`
+              // The ring around the bubble depletes with the total session.
+              const remPct = Math.min(100, Math.max(0, (rem / Math.max(endMs - startMs, 1)) * 100))
+              const onBreak = state.breakTimer && new Date(state.breakTimer.until) > now
+              const breakMs = Math.max(0, new Date(state.session.nextBreakAt) - now)
+              const bLabel =
+                rem === 0
+                  ? '🎉 session done'
+                  : onBreak
+                    ? '☕ on break'
+                    : breakMs === 0
+                      ? '☕ break time'
+                      : `☕ ${Math.floor(breakMs / 60000)}:${pad(Math.floor((breakMs % 60000) / 1000))} to break`
               const rec = sessionRecommendation(state.session)
               const base = state.session.base || { study: 0, active: 0 }
               const read = Math.max(0, (state.timeSpent?.study || 0) - base.study)
@@ -482,16 +500,25 @@ export default function App() {
               const readPct = tracked ? Math.round((read / tracked) * 100) : 0
               return (
                 <div className="tl-pop">
-                  <div className="countdown-chip session-chip">
-                    <span className="chip-text">
-                      📚 {left} left · now:{' '}
-                      {rec === 'study' ? '📖 study' : '🧠 active recall'}
-                    </span>
-                    <button className="chip-end" onClick={endSession}>
-                      End ✕
-                    </button>
+                  <div
+                    className="chip-ring"
+                    style={{
+                      background: `conic-gradient(var(--caramel) ${remPct}%, #eee1c6 0)`,
+                    }}
+                  >
+                    <div className="countdown-chip session-chip big">
+                      <span className="chip-text">
+                        {bLabel} · now: {rec === 'study' ? '📖 study' : '🧠 active recall'}
+                      </span>
+                      <button className="chip-end" onClick={endSession}>
+                        End ✕
+                      </button>
+                    </div>
                   </div>
                   <div className="tl-panel chip-tip">
+                    <p className="chip-total">
+                      ⏳ <strong>{left}</strong> left in this session
+                    </p>
                     <strong>Your mix this session</strong>
                     {tracked > 0 ? (
                       <>

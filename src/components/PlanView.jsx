@@ -232,28 +232,31 @@ export default function PlanView({
         const last = results[results.length - 1] || null
         const mixTotal = gauge ? gauge.readSec + gauge.recallSec : 0
         const readPct = mixTotal > 0 ? Math.round((gauge.readSec / mixTotal) * 100) : null
-        const donePct = gauge
-          ? Math.min(100, Math.round((gauge.doneMin / gauge.targetMin) * 100))
+        const totalTargetMin = Math.max(15, blocks.reduce((m, b) => m + b.min, 0))
+        const totalDonePct = gauge
+          ? Math.min(100, Math.round(((gauge.totalDoneMin || 0) / totalTargetMin) * 100))
           : 0
         return (
           <div className="stats-row">
             <div
               className="stat"
-              title="Time studied vs suggested for this stretch — resets after each practice test"
+              title="Total time studied vs the whole plan's suggestion — the subline is just this stretch"
             >
               <span className="stat-label">📚 studied</span>
               <span className="stat-value">
-                {gauge ? fmtDuration(gauge.doneMin) : '0 min'}
-                <span className="stat-of"> / {gauge ? fmtDuration(gauge.targetMin) : '—'}</span>
+                {gauge ? fmtDuration(gauge.totalDoneMin || 0) : '0 min'}
+                <span className="stat-of"> / {fmtDuration(totalTargetMin)}</span>
               </span>
               <div className="gauge-track mini">
                 <div
-                  className={`gauge-fill ${donePct >= 100 ? 'full' : ''}`}
-                  style={{ width: `${donePct}%` }}
+                  className={`gauge-fill ${totalDonePct >= 100 ? 'full' : ''}`}
+                  style={{ width: `${totalDonePct}%` }}
                 />
               </div>
               <span className="stat-sub">
-                {gauge?.testN ? `before practice test ${gauge.testN}` : 'before final review'}
+                {gauge
+                  ? `${fmtDuration(gauge.doneMin)} / ${fmtDuration(gauge.targetMin)} before ${gauge.testN ? `practice test ${gauge.testN}` : 'final review'}`
+                  : 'plan total'}
               </span>
             </div>
             <div className="stat" title="Share of your time rereading vs pulling it back out">
