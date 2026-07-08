@@ -44,7 +44,6 @@ export default function VerticalTimeline({
   const nextBlockFrom = upcoming[0]?.from || null
 
   const entries = [
-    { type: 'start', at: plan.startedAt },
     { type: 'now', at: new Date(now).toISOString() },
     ...blocks.map((b) => ({ type: 'study', at: b.from, b })),
     ...sleeps.map((s) => ({ type: 'sleep', at: s.from, s })),
@@ -52,6 +51,17 @@ export default function VerticalTimeline({
     { type: 'final', at: plan.finalReviewAt },
     { type: 'end', at: plan.testAt || testTime },
   ].sort((a, b) => new Date(a.at) - new Date(b.at) || ORDER[a.type] - ORDER[b.type])
+
+  // "You are here" and the next study block are one moment from the
+  // student's point of view — merge them into a single row.
+  if (!compact && sessionCard) {
+    const nowIdx = entries.findIndex((e) => e.type === 'now')
+    const after = entries[nowIdx + 1]
+    if (after?.type === 'study' && after.b.from === nextBlockFrom) {
+      entries.splice(nowIdx, 1)
+      after.here = true
+    }
+  }
 
   // Fill real gaps between study blocks / tests with a break-activity or
   // brain-nutrient tip — the rest is part of the plan, so suggest how to
@@ -90,8 +100,8 @@ export default function VerticalTimeline({
           </span>
           <div className="vt-body vt-hover">
             <p className="vt-line muted small">
-              {e.tip.emoji} {e.tip.tip}
-              <span className="vt-gap-len"> · ~{fmtMin(e.gapMin)} to recharge</span>
+              {e.tip.emoji} {e.tip.tip.replace(/^(Break|Snack) idea: /, '')}
+              <span className="vt-gap-len"> · ~{fmtMin(e.gapMin)}</span>
             </p>
             <span className="vt-tip">
               {e.tip.emoji} <strong>{e.tip.tip}.</strong> {e.tip.why}
@@ -120,9 +130,11 @@ export default function VerticalTimeline({
 
     return (
       <div key={key} className={`vt-row ${past ? 'past' : ''}`}>
-        <span className="vt-time">{dayClock(e.at)}</span>
+        <span className="vt-time">{e.here ? clock(new Date(now).toISOString()) : dayClock(e.at)}</span>
         <span className="vt-spine">
-          {e.type === 'study' ? (
+          {e.here ? (
+            <span className="vt-dot now" />
+          ) : e.type === 'study' ? (
             <span className="vt-dot study" />
           ) : e.type === 'sleep' ? (
             <span className="vt-ico sleep">😴</span>
@@ -137,20 +149,20 @@ export default function VerticalTimeline({
           )}
         </span>
         <div className="vt-body">
-          {e.type === 'start' && <p className="vt-line muted small">🍳 plan cooked</p>}
-
           {e.type === 'study' &&
             (showSessionCard ? (
-              sessionCard
+              <>
+                {e.here && <span className="vt-now-label">you are here</span>}
+                {sessionCard}
+              </>
             ) : (
               <div className="vt-hover">
                 <p className="vt-line">
-                  <strong>📖 Study block</strong> · ~{fmtMin(e.b.min)}
-                  <span className="muted small"> · {clock(e.b.from)}–{clock(e.b.to)}</span>
-                  {past && <span className="muted small"> · done or skipped</span>}
+                  <strong>📖 Study</strong> · ~{fmtMin(e.b.min)}
                 </p>
                 <span className="vt-tip">
-                  <strong>📖 ~{fmtMin(e.b.min)} of study</strong>, then step away. {SPACING_SCIENCE}
+                  <strong>📖 ~{fmtMin(e.b.min)} of study</strong> ({clock(e.b.from)}–{clock(e.b.to)}),
+                  then step away. {SPACING_SCIENCE}
                 </span>
               </div>
             ))}
@@ -198,7 +210,7 @@ export default function VerticalTimeline({
             (!compact && testCard && taken >= tests.length ? (
               testCard
             ) : (
-              <p className="vt-line muted small">🍮 final calm review — one pass, then rest</p>
+              <p className="vt-line muted small">🍮 final review — one calm pass, then rest</p>
             ))}
 
           {e.type === 'end' && (

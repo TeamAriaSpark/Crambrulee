@@ -13,10 +13,16 @@ const TOUR_STEPS = [
     body: 'Everything in one timeline: spaced study blocks, sleep, practice tests, and your real test. The gaps between blocks are deliberate — that’s when memory consolidates.',
   },
   {
+    selector: '.stats-row',
+    emoji: '📊',
+    title: 'Your numbers at a glance',
+    body: 'Time studied vs suggested, your reading/recall mix (aim for ~30/70), your last test score, and your level. They update live as you work.',
+  },
+  {
     selector: '.vt-session',
     emoji: '📚',
     title: 'Your next study block',
-    body: 'Start it whenever you’re ready — inside, switch freely between reading and flashcards, with a break popping up every 45 minutes. The gauge fills as you put in the suggested time.',
+    body: 'Start it whenever you’re ready — inside, switch freely between reading and flashcards, with a break popping up every 45 minutes.',
   },
   {
     selector: '.vt-test',
@@ -64,9 +70,6 @@ export default function PlanView({
 
   const blocks = suggestStudyBlocks(plan, intensity)
   const nextBlock = blocks.find((b) => new Date(b.to).getTime() > Date.now()) || null
-  const stretchBlocks = blocks.filter((b) =>
-    nextTest ? b.beforeTest === nextTest.n : b.beforeTest === null
-  )
 
   // Default session length: the next suggested block.
   const recMin = nextBlock
@@ -95,76 +98,21 @@ export default function PlanView({
           </span>
         )}
       </h3>
-      {gauge && (
-        <p className="muted small">
-          We suggest <strong>{fmtDuration(gauge.targetMin)}</strong> of study
-          {stretchBlocks.length > 1 && <> across {stretchBlocks.length} spaced blocks</>}
-          {gauge.testN ? <> before practice test {gauge.testN}</> : <> before your final review</>}.
-          Break every{' '}
-          <input
-            className="inline-num"
-            type="number"
-            min="10"
-            max="120"
-            value={breakEvery}
-            onChange={(e) =>
-              setBreakEvery(Math.max(10, Math.min(120, Number(e.target.value) || 45)))
-            }
-            aria-label="Break interval in minutes"
-          />{' '}
-          min.
-        </p>
-      )}
-      {gauge && (
-        <div
-          className="gauge"
-          title="Fills up as you complete study sessions — it resets after each practice test"
-        >
-          <div className="gauge-track">
-            <div
-              className={`gauge-fill ${gauge.doneMin >= gauge.targetMin ? 'full' : ''}`}
-              style={{
-                width: `${Math.min(100, Math.round((gauge.doneMin / gauge.targetMin) * 100))}%`,
-              }}
-            />
-          </div>
-          <span className="gauge-label">
-            {gauge.doneMin >= gauge.targetMin ? (
-              <>✅ suggested study time complete — you’re ready for the test</>
-            ) : (
-              <>
-                <strong>{fmtDuration(gauge.doneMin)}</strong> done of{' '}
-                {fmtDuration(gauge.targetMin)} suggested
-                {gauge.testN ? ` before practice test ${gauge.testN}` : ''}
-              </>
-            )}
-          </span>
-        </div>
-      )}
-      {gauge && gauge.readSec + gauge.recallSec > 0 && (
-        <div
-          className="mix-row"
-          title="Your reading vs recall mix — the science says aim for about 30/70"
-        >
-          {(() => {
-            const total = gauge.readSec + gauge.recallSec
-            const readPct = Math.round((gauge.readSec / total) * 100)
-            return (
-              <>
-                <div className="split-track">
-                  <span className="split-study" style={{ width: `${readPct}%` }} />
-                  <span className="split-active" style={{ width: `${100 - readPct}%` }} />
-                </div>
-                <span className="gauge-label">
-                  📖 rereading <strong>{readPct}%</strong> ({fmtSec(gauge.readSec)}) · 🧠 active
-                  recall <strong>{100 - readPct}%</strong> ({fmtSec(gauge.recallSec)}) · aim for
-                  ~30/70
-                </span>
-              </>
-            )
-          })()}
-        </div>
-      )}
+      <p className="muted small">
+        Break every{' '}
+        <input
+          className="inline-num"
+          type="number"
+          min="10"
+          max="120"
+          value={breakEvery}
+          onChange={(e) =>
+            setBreakEvery(Math.max(10, Math.min(120, Number(e.target.value) || 45)))
+          }
+          aria-label="Break interval in minutes"
+        />{' '}
+        min.
+      </p>
       <div className="len-row">
         {[30, 45, 60, 90].map((m) => (
           <button
@@ -217,15 +165,15 @@ export default function PlanView({
               </span>
             </div>
             <p className="muted small" style={{ margin: '2px 0 0' }}>
-              Afterwards your materials are rebuilt around what you missed.
+              Rebuilds your materials around what you miss
               {LEVELS.indexOf(level) < LEVELS.length - 1 ? (
                 <>
-                  {' '}Score <strong>80%+</strong> to move up to{' '}
+                  {' '}· <strong>80%+</strong> →{' '}
                   {LEVEL_META[LEVELS[LEVELS.indexOf(level) + 1]]?.emoji}{' '}
-                  <strong>{LEVELS[LEVELS.indexOf(level) + 1]}</strong>.
+                  <strong>{LEVELS[LEVELS.indexOf(level) + 1]}</strong>
                 </>
               ) : (
-                <> You’re at the top shelf — keep it crispy. 👨‍🍳</>
+                <> — you’re at the top shelf 👨‍🍳</>
               )}
             </p>
           </div>
@@ -255,9 +203,6 @@ export default function PlanView({
       <div className="session-head">
         <div>
           <h2>🗺️ Your cram plan</h2>
-          <p className="muted small" style={{ margin: '2px 0 0' }}>
-            Spaced study blocks with air between them — resting is when it sticks.
-          </p>
         </div>
         <div className="head-controls">
           <label className="level-select">
@@ -274,13 +219,87 @@ export default function PlanView({
             </span>
           </label>
           <span className="muted small level-note">
-            score 80%+ to level up · {taken}/{tests.length} tests taken ·{' '}
             <button className="tour-replay" onClick={() => setTourStep(0)}>
               ❓ tour
             </button>
           </span>
         </div>
       </div>
+
+      {(() => {
+        const last = results[results.length - 1] || null
+        const mixTotal = gauge ? gauge.readSec + gauge.recallSec : 0
+        const readPct = mixTotal > 0 ? Math.round((gauge.readSec / mixTotal) * 100) : null
+        const donePct = gauge
+          ? Math.min(100, Math.round((gauge.doneMin / gauge.targetMin) * 100))
+          : 0
+        return (
+          <div className="stats-row">
+            <div
+              className="stat"
+              title="Time studied vs suggested for this stretch — resets after each practice test"
+            >
+              <span className="stat-label">📚 studied</span>
+              <span className="stat-value">
+                {gauge ? fmtDuration(gauge.doneMin) : '0 min'}
+                <span className="stat-of"> / {gauge ? fmtDuration(gauge.targetMin) : '—'}</span>
+              </span>
+              <div className="gauge-track mini">
+                <div
+                  className={`gauge-fill ${donePct >= 100 ? 'full' : ''}`}
+                  style={{ width: `${donePct}%` }}
+                />
+              </div>
+              <span className="stat-sub">
+                {gauge?.testN ? `before practice test ${gauge.testN}` : 'before final review'}
+              </span>
+            </div>
+            <div className="stat" title="Share of your time rereading vs pulling it back out">
+              <span className="stat-label">🧠 your mix</span>
+              <span className="stat-value">
+                {readPct != null ? (
+                  <>
+                    {readPct}
+                    <span className="stat-of"> / </span>
+                    {100 - readPct}
+                  </>
+                ) : (
+                  '—'
+                )}
+              </span>
+              {readPct != null ? (
+                <div className="split-track mini">
+                  <span className="split-study" style={{ width: `${readPct}%` }} />
+                  <span className="split-active" style={{ width: `${100 - readPct}%` }} />
+                </div>
+              ) : (
+                <div className="gauge-track mini" />
+              )}
+              <span className="stat-sub">read / recall · aim ~30 / 70</span>
+            </div>
+            <div className="stat" title="Your most recent practice test">
+              <span className="stat-label">🔥 last test</span>
+              <span className="stat-value">
+                {last ? `${Math.round((last.score / last.total) * 100)}%` : '—'}
+              </span>
+              <span className="stat-sub">
+                {last
+                  ? `${last.score}/${last.total}${last.levelUp ? ' · leveled up! 🎉' : ''}`
+                  : 'none yet — test 1 awaits'}
+              </span>
+            </div>
+            <div className="stat" title="Ace a practice test (80%+) to level up">
+              <span className="stat-label">🌡️ level</span>
+              <span className="stat-value">
+                {LEVEL_META[level]?.emoji} {level}
+              </span>
+              <span className="stat-sub">
+                {taken}/{tests.length} tests taken
+              </span>
+            </div>
+          </div>
+        )
+      })()}
 
       {tourStep >= 0 && (
         <Tour
