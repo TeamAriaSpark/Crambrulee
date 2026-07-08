@@ -516,6 +516,13 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 .vt-ico.wake { border-color: var(--step-study); background: #fff6e0; }
 .vt-ico.wake.done { background: #edf6ea; border-color: var(--good); color: var(--good); font-weight: 800; }
 .vt-ico.wake.next { box-shadow: 0 0 0 4px rgba(242, 181, 68, 0.35); }
+.vt-linkrow {
+  background: none; border: none; padding: 0; margin: 3px 0 0;
+  font: inherit; color: inherit; cursor: pointer; text-align: left;
+  display: block;
+}
+.vt-linkrow:hover strong { color: var(--caramel); text-decoration: underline; }
+.vt-try { font-size: 0.8rem; font-weight: 700; color: var(--caramel); }
 .wake-cta {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; flex-wrap: wrap;

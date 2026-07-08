@@ -233,9 +233,16 @@ export default function VerticalTimeline({
               </div>
             ) : (
               <div className="vt-hover">
-                <p className="vt-line">
-                  <strong>🌅 Wake-up recall</strong> · ~10 min
-                </p>
+                {onWake && !compact ? (
+                  <button className="vt-line vt-linkrow" onClick={onWake}>
+                    <strong>🌅 Wake-up recall</strong> · ~10 min
+                    <span className="vt-try"> · curious? try it →</span>
+                  </button>
+                ) : (
+                  <p className="vt-line">
+                    <strong>🌅 Wake-up recall</strong> · ~10 min
+                  </p>
+                )}
                 <span className="vt-tip">
                   <strong>🌅 First thing after waking</strong> — before any notes — write down
                   every formula, concept, definition, and process you can retrieve. Sleep just
