@@ -75,7 +75,13 @@ export default function TimeSelect({ onDone, onBack }) {
         <button
           className="btn"
           onClick={() =>
-            onDone(new Date(Date.now() + hours * 3600000).toISOString(), intensity)
+            // Snap the whole schedule to a 15-minute grid from the start.
+            onDone(
+              new Date(
+                Math.round((Date.now() + hours * 3600000) / (15 * 60000)) * (15 * 60000)
+              ).toISOString(),
+              intensity
+            )
           }
         >
           Cook up my cram plan 🍳

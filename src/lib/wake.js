@@ -41,12 +41,11 @@ export const WAKE_PROMPTS = [
   },
 ]
 
-// Shown on sleep rows: how to sleep for memory, not just rest.
+// Shown on sleep rows: short, deep-sleep-first.
 export const SLEEP_RECS = [
-  'Skim your cheat sheet ~30 min before bed — the last thing in gets replay priority overnight.',
-  'Cool, dark, screens away for the final 30 min — blue light delays the deep sleep that files memories.',
-  'No caffeine within ~8 h of bed; it cuts deep sleep even when you fall asleep fine.',
-  'When you wake: do the wake-up recall before touching your notes.',
+  'Cool room, fully dark',
+  'No screens or caffeine late — both cut deep sleep',
+  'Cheat sheet at lights-out, wake-up recall first thing',
 ]
 
 // Local grader: coverage of the materials' topics by the student's dump.

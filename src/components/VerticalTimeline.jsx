@@ -15,9 +15,6 @@ const dayClock = (iso) => {
 
 const fmtMin = (min) => (min >= 90 ? `${Math.round(min / 6) / 10} h` : `${min} min`)
 
-const SLEEP_SCIENCE =
-  'Sleep isn’t lost study time — during deep sleep your brain replays what you learned and files it into long-term memory.'
-
 const SPACING_SCIENCE =
   'The gaps are on purpose: memory consolidates between sessions, and spaced blocks beat one long marathon — that’s the spacing effect.'
 
@@ -202,7 +199,7 @@ export default function VerticalTimeline({
                 <span className="muted small"> · {clock(e.s.from)}–{clock(e.s.to)}</span>
               </p>
               <span className="vt-tip">
-                <strong>💤 Sleep is part of studying.</strong> {SLEEP_SCIENCE}
+                <strong>💤 Deep sleep files today’s studying into long-term memory.</strong>
                 <span className="vt-tip-list">
                   {SLEEP_RECS.map((r) => (
                     <span key={r}>• {r}</span>

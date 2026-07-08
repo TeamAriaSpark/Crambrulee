@@ -42,6 +42,12 @@ export const TIPS = [
 
 const addMin = (d, m) => new Date(d.getTime() + m * 60000)
 
+// The whole schedule lives on a 15-minute grid — "6:15" reads like a plan,
+// "6:18" reads like a computer.
+const SNAP = 15 * 60000
+const snap15 = (d) => new Date(Math.round(new Date(d).getTime() / SNAP) * SNAP)
+const snapUpMs = (ms) => Math.ceil(ms / SNAP) * SNAP
+
 // Cramming intensity: what share of your awake time between practice tests
 // we suggest actually spending on study.
 export const INTENSITY = {
@@ -116,14 +122,14 @@ function offsetToWall(parts, offMin, lenMin) {
       rem -= dur
       continue
     }
-    let start = a + rem * 60000
+    let start = snapUpMs(a + rem * 60000)
     if (start + lenMin * 60000 > b) {
       if (i + 1 < parts.length) {
         const [a2, b2] = parts[i + 1]
-        start = a2
+        start = snapUpMs(a2)
         if (start + lenMin * 60000 > b2) return null
       } else {
-        start = Math.max(a, b - lenMin * 60000)
+        start = Math.max(a, Math.floor((b - lenMin * 60000) / SNAP) * SNAP)
       }
     }
     return { from: start, to: start + lenMin * 60000 }
@@ -148,7 +154,7 @@ export function suggestStudyBlocks(plan, intensity = 'steady') {
       awake * 0.85
     )
     const n = Math.max(1, Math.min(6, Math.round(total / 55)))
-    const len = Math.max(20, Math.round(total / n / 5) * 5)
+    const len = Math.max(15, Math.round(total / n / 15) * 15)
     const air = Math.max(5, (awake - n * len) / (n + 1))
     let lastEnd = 0
     for (let k = 0; k < n; k++) {
@@ -180,8 +186,8 @@ export function suggestSleeps(fromISO, toISO) {
   while (bed < to) {
     const wake = new Date(bed)
     wake.setHours(31, 0, 0, 0) // 07:00 the next morning
-    const start = new Date(Math.max(bed.getTime(), from.getTime()))
-    const end = new Date(Math.min(wake.getTime(), to.getTime()))
+    const start = new Date(snapUpMs(Math.max(bed.getTime(), from.getTime())))
+    const end = snap15(new Date(Math.min(wake.getTime(), to.getTime())))
     if (end - start >= 2 * 3600000) {
       sleeps.push({ from: start.toISOString(), to: end.toISOString() })
     }
@@ -197,25 +203,33 @@ export function generatePlan(testTimeISO, now = new Date()) {
   const hours = totalMin / 60
 
   // Stop studying a little before the real test: one calm review, then rest.
-  const bufferMin = hours <= 3 ? 20 : 45
-  const finalReviewAt = addMin(testTime, -bufferMin)
+  // Buffer sizes are grid-friendly so the review lands on a quarter hour.
+  const bufferMin = hours <= 3 ? 15 : 45
+  const finalReviewAt = snap15(addMin(testTime, -bufferMin))
   const workMin = Math.max(20, (finalReviewAt - now) / 60000)
 
   const plannedTests = hours <= 5 ? 2 : hours <= 24 ? 3 : 4
   const tests = Array.from({ length: plannedTests }, (_, i) => ({
     id: `test-${i + 1}`,
     n: i + 1,
-    suggestedAt: addMin(now, Math.round((workMin * (i + 1)) / (plannedTests + 0.35))).toISOString(),
+    suggestedAt: snap15(
+      addMin(now, Math.round((workMin * (i + 1)) / (plannedTests + 0.35)))
+    ).toISOString(),
   }))
 
   const sleeps = suggestSleeps(now.toISOString(), finalReviewAt.toISOString())
 
-  // Never suggest a practice test mid-sleep — nudge it to the morning after —
-  // and keep at least 45 minutes between suggestions when shifts collide.
+  // Never suggest a practice test mid-sleep — nudge it past the morning
+  // wake-up recall (30 min after waking) — and keep at least 45 minutes
+  // between suggestions when shifts collide.
   for (const t of tests) {
     for (const s of sleeps) {
       const at = new Date(t.suggestedAt)
-      if (at > new Date(s.from) && at < new Date(s.to)) t.suggestedAt = s.to
+      if (at > new Date(s.from) && at < new Date(s.to)) {
+        t.suggestedAt = new Date(
+          Math.min(addMin(new Date(s.to), 30).getTime(), finalReviewAt.getTime())
+        ).toISOString()
+      }
     }
   }
   const MIN_GAP = 45 * 60000
