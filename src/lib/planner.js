@@ -86,6 +86,86 @@ export function suggestedStudyMin(fromISO, toISO, sleeps = [], intensity = 'stea
   return Math.max(10, Math.round(raw / 5) * 5)
 }
 
+const ms = (iso) => new Date(iso).getTime()
+
+// Awake sub-intervals of [from, to] once sleep is carved out.
+function awakeParts(fromISO, toISO, sleeps) {
+  let parts = [[ms(fromISO), ms(toISO)]]
+  for (const s of sleeps) {
+    const sa = ms(s.from)
+    const sb = ms(s.to)
+    parts = parts.flatMap(([a, b]) => {
+      if (sb <= a || sa >= b) return [[a, b]]
+      const kept = []
+      if (sa > a) kept.push([a, sa])
+      if (sb < b) kept.push([sb, b])
+      return kept
+    })
+  }
+  return parts.filter(([a, b]) => b > a)
+}
+
+// Map "minutes into the awake time" to a wall-clock block of lenMin, moving
+// the block forward when it would straddle a sleep boundary.
+function offsetToWall(parts, offMin, lenMin) {
+  let rem = offMin
+  for (let i = 0; i < parts.length; i++) {
+    const [a, b] = parts[i]
+    const dur = (b - a) / 60000
+    if (rem >= dur) {
+      rem -= dur
+      continue
+    }
+    let start = a + rem * 60000
+    if (start + lenMin * 60000 > b) {
+      if (i + 1 < parts.length) {
+        const [a2, b2] = parts[i + 1]
+        start = a2
+        if (start + lenMin * 60000 > b2) return null
+      } else {
+        start = Math.max(a, b - lenMin * 60000)
+      }
+    }
+    return { from: start, to: start + lenMin * 60000 }
+  }
+  return null
+}
+
+// Discrete, spaced study blocks. The spacing is deliberate: consolidation
+// happens in the gaps, and spaced sessions beat one massed marathon — so we
+// never fill a stretch wall-to-wall.
+export function suggestStudyBlocks(plan, intensity = 'steady') {
+  const sleeps = plan?.sleeps || []
+  const tests = plan?.tests || []
+  const points = [plan.startedAt, ...tests.map((t) => t.suggestedAt), plan.finalReviewAt]
+  const blocks = []
+  for (let i = 0; i + 1 < points.length; i++) {
+    const parts = awakeParts(points[i], points[i + 1], sleeps)
+    const awake = parts.reduce((m, [a, b]) => m + (b - a) / 60000, 0)
+    if (awake < 20) continue
+    const total = Math.min(
+      suggestedStudyMin(points[i], points[i + 1], sleeps, intensity),
+      awake * 0.85
+    )
+    const n = Math.max(1, Math.min(6, Math.round(total / 55)))
+    const len = Math.max(20, Math.round(total / n / 5) * 5)
+    const air = Math.max(5, (awake - n * len) / (n + 1))
+    let lastEnd = 0
+    for (let k = 0; k < n; k++) {
+      const wall = offsetToWall(parts, air * (k + 1) + len * k, len)
+      if (!wall || wall.from < lastEnd) continue
+      lastEnd = wall.to
+      blocks.push({
+        from: new Date(wall.from).toISOString(),
+        to: new Date(wall.to).toISOString(),
+        min: len,
+        beforeTest: tests[i] ? tests[i].n : null,
+      })
+    }
+  }
+  return blocks
+}
+
 // Suggested sleep blocks (23:00–07:00) whenever the window crosses a night
 // with at least a couple of hours to sleep in it. Exported so the plan view
 // can backfill sleeps for sessions saved before this existed.

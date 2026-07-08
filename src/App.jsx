@@ -4,14 +4,14 @@ import TimeSelect from './components/TimeSelect.jsx'
 import Cooking, { COOK_STEPS, REFRY_STEPS } from './components/Cooking.jsx'
 import PlanView from './components/PlanView.jsx'
 import SessionView, { sessionRecommendation } from './components/SessionView.jsx'
-import TimelinePanel from './components/TimelinePanel.jsx'
+import VerticalTimeline from './components/VerticalTimeline.jsx'
 import StudyView from './components/StudyView.jsx'
 import FlashcardsView from './components/FlashcardsView.jsx'
 import TestView from './components/TestView.jsx'
 import ResultsView from './components/ResultsView.jsx'
 import { generateMaterials, LEVELS } from './lib/engine.js'
 import { generateMaterialsAI, hasApiKey } from './lib/ai.js'
-import { generatePlan, suggestedStudyMin } from './lib/planner.js'
+import { generatePlan, suggestedStudyMin, suggestStudyBlocks } from './lib/planner.js'
 
 const STORAGE_KEY = 'cram-brulee-v5' // v5: loose plan — suggested test times only
 
@@ -37,10 +37,17 @@ const emptyState = {
 // creation / after each test so the gauge fills steadily.
 function goalFrom(plan, testsTaken, timeSpent, intensity) {
   const next = plan?.tests?.[testsTaken] || null
+  // Target = the sum of the suggested spaced blocks for this stretch, so
+  // the gauge always agrees with what the timeline shows.
+  const stretchBlocks = suggestStudyBlocks(plan, intensity).filter((b) =>
+    next ? b.beforeTest === next.n : b.beforeTest === null
+  )
   const until = next ? next.suggestedAt : plan?.finalReviewAt
-  const suggested = until
-    ? suggestedStudyMin(new Date().toISOString(), until, plan?.sleeps || [], intensity)
-    : 60
+  const suggested = stretchBlocks.length
+    ? stretchBlocks.reduce((m, b) => m + b.min, 0)
+    : until
+      ? suggestedStudyMin(new Date().toISOString(), until, plan?.sleeps || [], intensity)
+      : 60
   return {
     targetMin: Math.min(600, Math.max(15, suggested)),
     base: { study: timeSpent?.study || 0, active: timeSpent?.active || 0 },
@@ -332,7 +339,6 @@ export default function App() {
         })()}
         level={state.level || 'novice'}
         onLevelChange={handleLevelChange}
-        onSleepChange={(sleeps) => setState((s) => ({ ...s, plan: { ...s.plan, sleeps } }))}
         onStartSession={startSession}
         onTest={() => update({ screen: 'test' })}
       />
@@ -497,16 +503,14 @@ export default function App() {
                   ⏲️ {countdown.text} until test time
                 </button>
                 {state.plan && (
-                  <div className="tl-panel">
-                    <TimelinePanel
+                  <div className="tl-panel vt-panel">
+                    <h3 className="lt-heading">⏳ Your runway to test day</h3>
+                    <VerticalTimeline
+                      compact
                       plan={state.plan}
                       testTime={state.testTime}
                       results={state.results}
                       intensity={state.intensity || 'steady'}
-                      onSleepChange={(sleeps) =>
-                        setState((s) => ({ ...s, plan: { ...s.plan, sleeps } }))
-                      }
-                      onDragStart={() => setTlPinned(true)}
                     />
                   </div>
                 )}
