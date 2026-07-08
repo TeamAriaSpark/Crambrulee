@@ -7,10 +7,10 @@ import Tour from './Tour.jsx'
 const TOUR_KEY = 'cram-brulee-tour-done'
 const TOUR_STEPS = [
   {
-    selector: '.vt',
-    emoji: '⏳',
-    title: 'Your runway, top to bottom',
-    body: 'Everything in one timeline: spaced study blocks, sleep, practice tests, and your real test. The gaps between blocks are deliberate — that’s when memory consolidates.',
+    selector: '.cal',
+    emoji: '🗓️',
+    title: 'Your plan, day by day',
+    body: 'One column per day: spaced study blocks, sleep, wake-up recall, practice tests, and your real test. The gaps between blocks are deliberate — that’s when memory consolidates.',
   },
   {
     selector: '.stats-row',

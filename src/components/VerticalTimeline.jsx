@@ -4,15 +4,6 @@ import { SLEEP_RECS } from '../lib/wake.js'
 const clock = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
 
-const dayClock = (iso) => {
-  const d = new Date(iso)
-  const today = new Date()
-  const sameDay = d.toDateString() === today.toDateString()
-  return sameDay
-    ? clock(iso)
-    : d.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })
-}
-
 const fmtMin = (min) => (min >= 90 ? `${Math.round(min / 6) / 10} h` : `${min} min`)
 
 const SPACING_SCIENCE =
@@ -20,9 +11,17 @@ const SPACING_SCIENCE =
 
 const ORDER = { start: 0, now: 1, sleep: 2, wake: 3, study: 4, test: 5, final: 6, end: 7 }
 
-// The plan as a simple vertical timeline: spaced study blocks, sleep,
-// practice tests, and the real test, in one chronological list. The next
-// study block and next practice test expand into their action cards.
+const dayTitle = (date) => {
+  const today = new Date()
+  const tomorrow = new Date(today.getTime() + 86400000)
+  if (date.toDateString() === today.toDateString()) return 'Today'
+  if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow'
+  return date.toLocaleDateString([], { weekday: 'long' })
+}
+
+// The plan as a calendar: one column per day, with study blocks, sleep,
+// wake-up recall, practice tests, and the real test as event chips. The
+// next study block and next practice test expand into their action cards.
 export default function VerticalTimeline({
   plan,
   testTime,
@@ -74,7 +73,7 @@ export default function VerticalTimeline({
   ].sort((a, b) => new Date(a.at) - new Date(b.at) || ORDER[a.type] - ORDER[b.type])
 
   // "You are here" and the next study block are one moment from the
-  // student's point of view — merge them into a single row.
+  // student's point of view — merge them into a single event.
   if (!compact && sessionCard) {
     const nowIdx = entries.findIndex((e) => e.type === 'now')
     const after = entries[nowIdx + 1]
@@ -85,8 +84,7 @@ export default function VerticalTimeline({
   }
 
   // Fill real gaps between study blocks / tests with a break-activity or
-  // brain-nutrient tip — the rest is part of the plan, so suggest how to
-  // spend it. Deterministic rotation keeps tips stable across renders.
+  // brain-nutrient tip. Deterministic rotation keeps tips stable.
   if (!compact) {
     let tipIdx = 0
     for (let i = 0; i < entries.length - 1; i++) {
@@ -107,206 +105,212 @@ export default function VerticalTimeline({
     }
   }
 
-  const rows = entries.map((e, i) => {
+  // Group chronological entries into day columns.
+  const days = []
+  for (const e of entries) {
+    const key = new Date(e.at).toDateString()
+    let day = days[days.length - 1]
+    if (!day || day.key !== key) {
+      day = { key, date: new Date(e.at), entries: [] }
+      days.push(day)
+    }
+    day.entries.push(e)
+  }
+
+  const renderEntry = (e, i) => {
     const endAt = e.b?.to || e.s?.to || e.at
     const past = e.type !== 'now' && !e.active && new Date(endAt).getTime() < now
     const key = `${e.type}-${i}`
 
     if (e.type === 'tip') {
       return (
-        <div key={key} className={`vt-row vt-tiprow ${past ? 'past' : ''}`}>
-          <span className="vt-time" />
-          <span className="vt-spine">
-            <span className="vt-dot tip" />
+        <div key={key} className={`cal-tip vt-hover ${past ? 'past' : ''}`}>
+          <span className="muted small">
+            {e.tip.emoji} {e.tip.tip.replace(/^(Break|Snack) idea: /, '')}
+            <span className="vt-gap-len"> · ~{fmtMin(e.gapMin)}</span>
           </span>
-          <div className="vt-body vt-hover">
-            <p className="vt-line muted small">
-              {e.tip.emoji} {e.tip.tip.replace(/^(Break|Snack) idea: /, '')}
-              <span className="vt-gap-len"> · ~{fmtMin(e.gapMin)}</span>
-            </p>
-            <span className="vt-tip">
-              {e.tip.emoji} <strong>{e.tip.tip}.</strong> {e.tip.why}
-            </span>
-          </div>
+          <span className="vt-tip">
+            {e.tip.emoji} <strong>{e.tip.tip}.</strong> {e.tip.why}
+          </span>
         </div>
       )
     }
 
     if (e.type === 'now') {
+      // The calendar's "current time" line.
       return (
-        <div key={key} className="vt-row vt-now">
-          <span className="vt-time">{clock(e.at)}</span>
-          <span className="vt-spine">
-            <span className="vt-dot now" />
-          </span>
-          <div className="vt-body">
-            <span className="vt-now-label">you are here</span>
-          </div>
+        <div key={key} className="cal-now">
+          <span className="cal-now-label">now · {clock(e.at)}</span>
         </div>
       )
     }
 
-    const showSessionCard = !compact && sessionCard && e.type === 'study' && e.b.from === nextBlockFrom
+    const showSessionCard =
+      !compact && sessionCard && e.type === 'study' && e.b.from === nextBlockFrom
     const showTestCard = !compact && testCard && e.type === 'test' && e.next
 
-    return (
-      <div key={key} className={`vt-row ${past ? 'past' : ''}`}>
-        <span className="vt-time">{e.here ? clock(new Date(now).toISOString()) : dayClock(e.at)}</span>
-        <span className="vt-spine">
-          {e.here ? (
-            <span className="vt-dot now" />
-          ) : e.type === 'study' ? (
-            <span className="vt-dot study" />
-          ) : e.type === 'sleep' ? (
-            <span className="vt-ico sleep">😴</span>
-          ) : e.type === 'wake' ? (
-            <span className={`vt-ico wake ${e.logged ? 'done' : ''} ${e.active ? 'next' : ''}`}>
-              {e.logged ? '✓' : '🌅'}
+    if (showSessionCard) {
+      return (
+        <div key={key} className="cal-card">
+          {e.here && <span className="vt-now-label">you are here</span>}
+          {sessionCard}
+        </div>
+      )
+    }
+    if (showTestCard) {
+      return (
+        <div key={key} className="cal-card">
+          {testCard}
+        </div>
+      )
+    }
+
+    const time = <span className="cal-time">{clock(e.at)}</span>
+
+    if (e.type === 'study') {
+      return (
+        <div key={key} className={`cal-ev study vt-hover ${past ? 'past' : ''}`}>
+          {time}
+          <span className="cal-label">📖 Study · ~{fmtMin(e.b.min)}</span>
+          <span className="vt-tip">
+            <strong>📖 ~{fmtMin(e.b.min)} of study</strong> ({clock(e.b.from)}–{clock(e.b.to)}),
+            then step away. {SPACING_SCIENCE}
+          </span>
+        </div>
+      )
+    }
+
+    if (e.type === 'sleep') {
+      return (
+        <div key={key} className={`cal-ev sleep vt-hover ${past ? 'past' : ''}`}>
+          {time}
+          <span className="cal-label">
+            💤 Sleep <span className="cal-sub">until {clock(e.s.to)}</span>
+          </span>
+          <span className="vt-tip">
+            <strong>💤 Deep sleep files today’s studying into long-term memory.</strong>
+            <span className="vt-tip-list">
+              {SLEEP_RECS.map((r) => (
+                <span key={r}>• {r}</span>
+              ))}
             </span>
-          ) : e.type === 'test' ? (
-            <span className={`vt-ico test ${e.done ? 'done' : ''} ${e.next ? 'next' : ''}`}>
-              {e.done ? '✓' : '🔥'}
+          </span>
+        </div>
+      )
+    }
+
+    if (e.type === 'wake') {
+      if (e.logged) {
+        return (
+          <div key={key} className={`cal-ev wake done ${past ? 'past' : ''}`}>
+            {time}
+            <span className="cal-label">
+              ✓ Wake-up recall <span className="cal-sub">{e.logged.score}% came back</span>
             </span>
-          ) : e.type === 'end' ? (
-            <span className="vt-ico end">🎓</span>
+          </div>
+        )
+      }
+      if (e.active && !compact && onWake) {
+        return (
+          <div key={key} className="cal-ev wake active">
+            {time}
+            <span className="cal-label">🌅 Wake-up recall · ~10 min</span>
+            <button className="btn small-btn cal-btn" onClick={onWake}>
+              Do it now 🌅
+            </button>
+          </div>
+        )
+      }
+      return (
+        <div key={key} className={`cal-ev wake vt-hover ${past ? 'past' : ''}`}>
+          {time}
+          {onWake && !compact ? (
+            <button className="cal-label vt-linkrow" onClick={onWake}>
+              🌅 Wake-up recall <span className="vt-try">· try it →</span>
+            </button>
           ) : (
-            <span className="vt-dot" />
+            <span className="cal-label">🌅 Wake-up recall</span>
           )}
-        </span>
-        <div className="vt-body">
-          {e.type === 'study' &&
-            (showSessionCard ? (
+          <span className="vt-tip">
+            <strong>🌅 First thing after waking</strong> — before any notes — write down every
+            formula, concept, definition, and process you can retrieve. Sleep just consolidated
+            it; pulling it out now locks it in. We grade your pour against your materials.
+          </span>
+        </div>
+      )
+    }
+
+    if (e.type === 'test') {
+      return (
+        <div key={key} className={`cal-ev test vt-hover ${e.done ? 'done' : ''} ${past ? 'past' : ''}`}>
+          {time}
+          <span className="cal-label">
+            {e.done ? '✓' : '🔥'} Practice test {e.t.n}
+            {e.done && <span className="cal-sub">taken</span>}
+          </span>
+          <span className="vt-tip">
+            {e.done ? (
               <>
-                {e.here && <span className="vt-now-label">you are here</span>}
-                {sessionCard}
+                <strong>✓ Practice test {e.t.n}</strong> — taken. The refry that followed
+                doubled down on what you missed.
               </>
             ) : (
-              <div className="vt-hover">
-                <p className="vt-line">
-                  <strong>📖 Study</strong> · ~{fmtMin(e.b.min)}
-                </p>
-                <span className="vt-tip">
-                  <strong>📖 ~{fmtMin(e.b.min)} of study</strong> ({clock(e.b.from)}–{clock(e.b.to)}),
-                  then step away. {SPACING_SCIENCE}
-                </span>
-              </div>
-            ))}
-
-          {e.type === 'sleep' && (
-            <div className="vt-hover">
-              <p className="vt-line">
-                <strong>💤 Sleep</strong>
-                <span className="muted small"> · {clock(e.s.from)}–{clock(e.s.to)}</span>
-              </p>
-              <span className="vt-tip">
-                <strong>💤 Deep sleep files today’s studying into long-term memory.</strong>
-                <span className="vt-tip-list">
-                  {SLEEP_RECS.map((r) => (
-                    <span key={r}>• {r}</span>
-                  ))}
-                </span>
-              </span>
-            </div>
-          )}
-
-          {e.type === 'wake' &&
-            (e.logged ? (
-              <p className="vt-line">
-                <strong>✓ Wake-up recall</strong>
-                <span className="muted small">
-                  {' '}· {e.logged.score}% came back
-                </span>
-              </p>
-            ) : e.active && !compact && onWake ? (
-              <div className="wake-cta">
-                <div>
-                  <p className="vt-line">
-                    <strong>🌅 Wake-up recall</strong> · ~10 min
-                  </p>
-                  <p className="muted small" style={{ margin: 0 }}>
-                    Before you open your notes — write down everything you remember.
-                  </p>
-                </div>
-                <button className="btn small-btn" onClick={onWake}>
-                  Do it now 🌅
-                </button>
-              </div>
-            ) : (
-              <div className="vt-hover">
-                {onWake && !compact ? (
-                  <button className="vt-line vt-linkrow" onClick={onWake}>
-                    <strong>🌅 Wake-up recall</strong> · ~10 min
-                    <span className="vt-try"> · curious? try it →</span>
-                  </button>
-                ) : (
-                  <p className="vt-line">
-                    <strong>🌅 Wake-up recall</strong> · ~10 min
-                  </p>
-                )}
-                <span className="vt-tip">
-                  <strong>🌅 First thing after waking</strong> — before any notes — write down
-                  every formula, concept, definition, and process you can retrieve. Sleep just
-                  consolidated it; pulling it out now locks it in. We grade your pour against
-                  your materials.
-                </span>
-              </div>
-            ))}
-
-          {e.type === 'test' &&
-            (showTestCard ? (
-              testCard
-            ) : (
-              <div className="vt-hover">
-                <p className="vt-line">
-                  <strong>
-                    {e.done ? '✓' : '🔥'} Practice test {e.t.n}
-                  </strong>
-                  {e.done && <span className="muted small"> · taken</span>}
-                </p>
-                <span className="vt-tip">
-                  {e.done ? (
-                    <>
-                      <strong>✓ Practice test {e.t.n}</strong> — taken. The refry that followed
-                      doubled down on what you missed.
-                    </>
-                  ) : (
-                    <>
-                      <strong>🔥 Practice test {e.t.n}</strong> — simulates the real thing, then
-                      your materials are rebuilt around what you miss. Score 80%+ to level up.
-                    </>
-                  )}
-                </span>
-              </div>
-            ))}
-
-          {e.type === 'final' &&
-            (!compact && testCard && taken >= tests.length ? (
-              testCard
-            ) : (
-              <p className="vt-line muted small">🍮 final review — one calm pass, then rest</p>
-            ))}
-
-          {e.type === 'end' && (
-            <p className="vt-line vt-end-line">
-              <strong>🎓 Your test</strong>
-            </p>
-          )}
+              <>
+                <strong>🔥 Practice test {e.t.n}</strong> — simulates the real thing, then your
+                materials are rebuilt around what you miss. Score 80%+ to level up.
+              </>
+            )}
+          </span>
         </div>
-      </div>
-    )
-  })
+      )
+    }
+
+    if (e.type === 'final') {
+      if (!compact && testCard && taken >= tests.length) {
+        return (
+          <div key={key} className="cal-card">
+            {testCard}
+          </div>
+        )
+      }
+      return (
+        <div key={key} className={`cal-ev final ${past ? 'past' : ''}`}>
+          {time}
+          <span className="cal-label">🍮 Final review <span className="cal-sub">one calm pass</span></span>
+        </div>
+      )
+    }
+
+    if (e.type === 'end') {
+      return (
+        <div key={key} className="cal-ev end">
+          {time}
+          <span className="cal-label">🎓 Your test</span>
+        </div>
+      )
+    }
+
+    return null
+  }
 
   return (
-    <div className={`vt ${compact ? 'compact' : ''}`}>
-      {rows}
-      {!compact && sessionCard && !nextBlockFrom && (
-        <div className="vt-row">
-          <span className="vt-time" />
-          <span className="vt-spine">
-            <span className="vt-dot study" />
-          </span>
-          <div className="vt-body">{sessionCard}</div>
+    <div className={`cal cols-${Math.min(days.length, 4)} ${compact ? 'compact' : ''}`}>
+      {days.map((day) => (
+        <div
+          key={day.key}
+          className={`cal-day ${day.key === new Date().toDateString() ? 'today' : ''}`}
+        >
+          <div className="cal-head">
+            <span className="cal-head-day">{dayTitle(day.date)}</span>
+            <span className="cal-head-date">
+              {day.date.toLocaleDateString([], { month: 'short', day: 'numeric' })}
+            </span>
+          </div>
+          {day.entries.map(renderEntry)}
         </div>
+      ))}
+      {!compact && sessionCard && !nextBlockFrom && (
+        <div className="cal-card cal-orphan">{sessionCard}</div>
       )}
     </div>
   )
