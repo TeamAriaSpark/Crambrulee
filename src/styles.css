@@ -380,6 +380,18 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
   background: var(--card); color: var(--cocoa);
 }
 .intensity-blurb { max-width: 380px; text-align: left; }
+.sleep-row {
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  flex-wrap: wrap; margin: 14px 0 4px;
+}
+.sleep-times { display: flex; gap: 10px; }
+.sleep-pick { display: flex; flex-direction: column; gap: 3px; }
+.sleep-pick input {
+  font: inherit; font-weight: 700; cursor: pointer;
+  border: 2px solid var(--line); border-radius: 12px; padding: 6px 10px;
+  background: var(--card); color: var(--cocoa);
+}
+.sleep-note { max-width: 360px; text-align: left; }
 
 /* ---------- cooking ---------- */
 .cooking { text-align: center; padding: 60px 26px; }
@@ -397,20 +409,14 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 .head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .session-chip {
   background: linear-gradient(135deg, #7fbf6f, #4e9a51);
-  display: flex; align-items: center; gap: 12px; cursor: default;
+  cursor: pointer; font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-.chip-text { white-space: nowrap; }
-.session-chip .chip-end { flex-shrink: 0; }
-.chip-end {
-  font: inherit; font-size: 0.78rem; font-weight: 800; cursor: pointer;
-  color: #fff; background: rgba(255, 255, 255, 0.18);
-  border: 1.5px solid rgba(255, 255, 255, 0.55); border-radius: 999px;
-  padding: 3px 12px; transition: background 0.12s ease;
-}
-.chip-end:hover { background: rgba(255, 255, 255, 0.32); }
-.tl-panel.chip-tip { width: 300px; padding: 16px 20px; }
+.tl-panel.chip-tip { width: 280px; padding: 16px 20px; }
 .chip-tip p { margin: 0; }
-.chip-tip .split-nums { margin: 0 0 4px; font-size: 0.92rem; }
+.chip-tip .chip-line { font-size: 0.92rem; margin-bottom: 4px; }
+.chip-tip .split-nums { margin: 0; font-size: 0.9rem; }
+.chip-mix { margin-top: 4px; }
+.chip-end-btn { width: 100%; margin-top: 12px; }
 .split-track {
   display: flex; height: 12px; border-radius: 999px; overflow: hidden;
   margin: 10px 0 8px; background: var(--custard);
@@ -419,13 +425,11 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 .split-active { background: var(--step-test); }
 .tl-pop { position: relative; }
 .tl-pop > .countdown-chip { font: inherit; font-weight: 700; border: none; cursor: pointer; display: block; }
-.tl-pop > .session-chip { display: flex; cursor: default; }
-.chip-ring { border-radius: 999px; padding: 3.5px; width: fit-content; margin-left: auto; }
-.session-chip.big { font-size: 1.05rem; padding: 11px 20px; }
-.session-chip.big .chip-end { font-size: 0.84rem; padding: 4px 14px; }
+.chip-ring { border-radius: 999px; padding: 4px; width: fit-content; margin-left: auto; }
+.session-chip.big { font-size: 1.1rem; padding: 11px 20px; display: block; }
 .chip-tip .chip-total {
-  margin: 0 0 10px; padding-bottom: 8px; font-size: 0.95rem;
-  border-bottom: 1.5px solid var(--line); font-variant-numeric: tabular-nums;
+  margin: 8px 0 0; padding-top: 8px; font-size: 0.95rem;
+  border-top: 1.5px solid var(--line); font-variant-numeric: tabular-nums;
 }
 .tl-panel {
   display: none; position: absolute; right: 0; top: calc(100% + 10px); z-index: 40;
@@ -433,6 +437,8 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
   background: var(--card); border: 1.5px solid var(--custard-deep); border-radius: 16px;
   padding: 4px 20px 12px; box-shadow: 0 16px 44px rgba(62, 42, 22, 0.28);
 }
+/* invisible bridge so moving from chip to panel doesn't drop the hover */
+.tl-panel::before { content: ''; position: absolute; left: 0; right: 0; top: -12px; height: 12px; }
 .tl-pop:hover .tl-panel, .tl-pop.pinned .tl-panel { display: block; }
 
 /* stats row */
@@ -751,7 +757,8 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
   .head-right { width: 100%; align-items: stretch; }
   .tl-pop > .countdown-chip { width: 100%; text-align: center; }
   .chip-ring { width: 100%; }
-  .tl-pop > .session-chip { justify-content: space-between; font-size: 0.88rem; }
+  .session-chip.big { text-align: center; }
+  .sleep-row, .intensity-row { justify-content: flex-start; }
   /* the timeline is too dense for in-bar text on a phone — bars + hover only */
   .lt-sleep-text, .lt-studyspan-text { display: none; }
   .lt-mtip { max-width: 200px; }

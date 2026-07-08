@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Upload from './components/Upload.jsx'
 import TimeSelect from './components/TimeSelect.jsx'
 import Cooking, { COOK_STEPS, REFRY_STEPS } from './components/Cooking.jsx'
@@ -32,6 +32,7 @@ const emptyState = {
   sessionGoal: null, // { targetMin, base: {study, active}, testN } — suggested study before the next test
   wakeRecalls: [], // graded morning brain-dumps: { at, score, recalled, missed, feedback, source }
   intensity: 'steady', // chill | steady | intense — scales suggested study time
+  sleepWindow: null, // { bedMin, wakeMin } — the student's chosen sleep hours
   level: 'novice', // novice | competent | expert — advances on strong practice-test scores
 }
 
@@ -90,6 +91,18 @@ export default function App() {
   const [state, setState] = useState(loadState)
   const countdown = useCountdown(state.testTime)
   const [tlPinned, setTlPinned] = useState(false)
+  const [sessionChipOpen, setSessionChipOpen] = useState(false)
+  const chipRef = useRef(null)
+
+  // A pinned session-timer panel closes when you tap/click outside it.
+  useEffect(() => {
+    if (!sessionChipOpen) return
+    const onDoc = (e) => {
+      if (chipRef.current && !chipRef.current.contains(e.target)) setSessionChipOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [sessionChipOpen])
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
@@ -203,7 +216,10 @@ export default function App() {
       screen: 'session',
     }))
   }
-  const endSession = () => update({ session: null, breakTimer: null, screen: 'plan' })
+  const endSession = () => {
+    setSessionChipOpen(false)
+    update({ session: null, breakTimer: null, screen: 'plan' })
+  }
 
   const update = (patch) => setState((s) => ({ ...s, ...patch }))
 
@@ -282,7 +298,7 @@ export default function App() {
         screen: 'plan',
       }))
     } else {
-      const plan = generatePlan(state.testTime)
+      const plan = generatePlan(state.testTime, undefined, state.sleepWindow)
       setState((s) => ({
         ...s,
         plan,
@@ -328,8 +344,14 @@ export default function App() {
     time: (
       <TimeSelect
         onBack={() => update({ screen: 'upload' })}
-        onDone={(testTime, intensity) =>
-          update({ testTime, intensity, cookingJob: { kind: 'initial' }, screen: 'cooking' })
+        onDone={(testTime, intensity, sleepWindow) =>
+          update({
+            testTime,
+            intensity,
+            sleepWindow,
+            cookingJob: { kind: 'initial' },
+            screen: 'cooking',
+          })
         }
       />
     ),
@@ -475,71 +497,116 @@ export default function App() {
               const startMs = new Date(state.session.startedAt).getTime()
               const endMs = new Date(state.session.until).getTime()
               const rem = Math.max(0, endMs - now)
+              const sessionMs = Math.max(endMs - startMs, 1)
               const pad = (n) => String(n).padStart(2, '0')
-              const h = Math.floor(rem / 3600000)
-              const m = Math.floor((rem % 3600000) / 60000)
-              const sec = Math.floor((rem % 60000) / 1000)
-              const left = h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`
-              // The ring around the bubble depletes with the total session.
-              const remPct = Math.min(100, Math.max(0, (rem / Math.max(endMs - startMs, 1)) * 100))
+              const fmt = (msLeft) => {
+                const h = Math.floor(msLeft / 3600000)
+                const m = Math.floor((msLeft % 3600000) / 60000)
+                const s = Math.floor((msLeft % 60000) / 1000)
+                return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`
+              }
+              const left = fmt(rem)
               const onBreak = state.breakTimer && new Date(state.breakTimer.until) > now
               const breakMs = Math.max(0, new Date(state.session.nextBreakAt) - now)
-              const bLabel =
-                rem === 0
-                  ? '🎉 session done'
-                  : onBreak
-                    ? '☕ on break'
-                    : breakMs === 0
-                      ? '☕ break time'
-                      : `☕ ${Math.floor(breakMs / 60000)}:${pad(Math.floor((breakMs % 60000) / 1000))} to break`
               const rec = sessionRecommendation(state.session)
+              // The bubble shows only the time to the next break.
+              const chipTime =
+                rem === 0 ? '🎉' : onBreak ? '☕ break' : breakMs === 0 ? '☕ now' : `☕ ${fmt(breakMs)}`
+              const breakLabel =
+                rem === 0
+                  ? 'Session complete 🎉'
+                  : onBreak
+                    ? 'On a break right now'
+                    : breakMs === 0
+                      ? 'Break time — take five'
+                      : `${fmt(breakMs)} until your next break`
+              // Ring = the whole session, draining clockwise from the top, with a
+              // cocoa notch at each upcoming break.
+              const elapsedDeg = Math.min(360, Math.max(0, ((now - startMs) / sessionMs) * 360))
+              const notches = []
+              if (rem > 0) {
+                const be = (state.session.breakEveryMin || 45) * 60000
+                for (
+                  let bt = new Date(state.session.nextBreakAt).getTime();
+                  bt < endMs && notches.length < 12;
+                  bt += be
+                ) {
+                  if (bt > now) notches.push(((bt - startMs) / sessionMs) * 360)
+                }
+              }
+              const progress = `conic-gradient(#eae0c8 0deg ${elapsedDeg}deg, var(--caramel) ${elapsedDeg}deg 360deg)`
+              const W = 3.4
+              let prevHi = 0
+              const stops = ['transparent 0deg']
+              notches
+                .sort((a, b) => a - b)
+                .forEach((c) => {
+                  const lo = Math.max(prevHi, c - W)
+                  const hi = Math.min(360, c + W)
+                  if (hi <= lo) return
+                  stops.push(
+                    `transparent ${lo}deg`,
+                    `var(--cocoa) ${lo}deg`,
+                    `var(--cocoa) ${hi}deg`,
+                    `transparent ${hi}deg`
+                  )
+                  prevHi = hi
+                })
+              stops.push('transparent 360deg')
+              const ringBg = notches.length
+                ? `conic-gradient(${stops.join(', ')}), ${progress}`
+                : progress
               const base = state.session.base || { study: 0, active: 0 }
               const read = Math.max(0, (state.timeSpent?.study || 0) - base.study)
               const recall = Math.max(0, (state.timeSpent?.active || 0) - base.active)
               const tracked = read + recall
               const readPct = tracked ? Math.round((read / tracked) * 100) : 0
               return (
-                <div className="tl-pop">
-                  <div
-                    className="chip-ring"
-                    style={{
-                      background: `conic-gradient(var(--caramel) ${remPct}%, #eee1c6 0)`,
-                    }}
-                  >
-                    <div className="countdown-chip session-chip big">
-                      <span className="chip-text">
-                        {bLabel} · now: {rec === 'study' ? '📖 study' : '🧠 active recall'}
-                      </span>
-                      <button className="chip-end" onClick={endSession}>
-                        End ✕
-                      </button>
-                    </div>
+                <div className={`tl-pop ${sessionChipOpen ? 'pinned' : ''}`} ref={chipRef}>
+                  <div className="chip-ring" style={{ background: ringBg }}>
+                    <button
+                      className="countdown-chip session-chip big"
+                      onClick={() => setSessionChipOpen((o) => !o)}
+                      title="Break time, session time, and End"
+                    >
+                      {chipTime}
+                    </button>
                   </div>
                   <div className="tl-panel chip-tip">
+                    <p className="chip-line">
+                      <strong>☕ {breakLabel}</strong>
+                    </p>
+                    <p className="chip-line">
+                      Do now: {rec === 'study' ? '📖 study' : '🧠 active recall'}
+                    </p>
                     <p className="chip-total">
                       ⏳ <strong>{left}</strong> left in this session
                     </p>
-                    <strong>Your mix this session</strong>
-                    {tracked > 0 ? (
-                      <>
-                        <div className="split-track">
-                          <span className="split-study" style={{ width: `${readPct}%` }} />
-                          <span
-                            className="split-active"
-                            style={{ width: `${100 - readPct}%` }}
-                          />
-                        </div>
-                        <p className="split-nums">
-                          📖 rereading <strong>{readPct}%</strong> · 🧠 active recall{' '}
-                          <strong>{100 - readPct}%</strong>
+                    <div className="chip-mix">
+                      <strong>Your mix this session</strong>
+                      {tracked > 0 ? (
+                        <>
+                          <div className="split-track">
+                            <span className="split-study" style={{ width: `${readPct}%` }} />
+                            <span
+                              className="split-active"
+                              style={{ width: `${100 - readPct}%` }}
+                            />
+                          </div>
+                          <p className="split-nums">
+                            📖 rereading <strong>{readPct}%</strong> · 🧠 active recall{' '}
+                            <strong>{100 - readPct}%</strong>
+                          </p>
+                        </>
+                      ) : (
+                        <p className="muted small" style={{ margin: 0 }}>
+                          Nothing tracked yet — dig in!
                         </p>
-                        <p className="muted small">
-                          Aim for about 30/70 — pulling it back out is what makes it stick.
-                        </p>
-                      </>
-                    ) : (
-                      <p className="muted small">Nothing tracked yet — dig in!</p>
-                    )}
+                      )}
+                    </div>
+                    <button className="btn ghost small-btn chip-end-btn" onClick={endSession}>
+                      End session ✕
+                    </button>
                   </div>
                 </div>
               )

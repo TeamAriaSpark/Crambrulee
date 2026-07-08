@@ -172,32 +172,49 @@ export function suggestStudyBlocks(plan, intensity = 'steady') {
   return blocks
 }
 
-// Suggested sleep blocks (23:00–07:00) whenever the window crosses a night
-// with at least a couple of hours to sleep in it. Exported so the plan view
-// can backfill sleeps for sessions saved before this existed.
-export function suggestSleeps(fromISO, toISO) {
+// Suggested sleep blocks whenever the window crosses a night with at least a
+// couple of hours to sleep in it. The bedtime/wake window defaults to
+// 23:00–07:00 but the student can set their own during onboarding.
+// Exported so the plan view can backfill sleeps for older sessions.
+// Minutes of sleep from bedtime to the next wake time, wrapping past midnight.
+// Shared so the onboarding reminder and the plan can never disagree.
+export function sleepDurationMin(bedMin, wakeMin) {
+  const d = (((wakeMin - bedMin) % 1440) + 1440) % 1440
+  return d === 0 ? 8 * 60 : d
+}
+
+export function suggestSleeps(fromISO, toISO, sleepWindow) {
+  // Number.isFinite also rejects NaN (a cleared time input) — plain ?? would let it through.
+  const bedMin = Number.isFinite(sleepWindow?.bedMin) ? sleepWindow.bedMin : 23 * 60
+  const wakeMin = Number.isFinite(sleepWindow?.wakeMin) ? sleepWindow.wakeMin : 7 * 60
   const from = new Date(fromISO)
   const to = new Date(toISO)
   const sleeps = []
   if (to - from < 9 * 3600000) return sleeps
+  const bedH = Math.floor(bedMin / 60)
+  const bedM = bedMin % 60
+  const durMin = sleepDurationMin(bedMin, wakeMin)
+  // Start a day back so we catch a night the student may already be inside.
   let bed = new Date(from)
-  bed.setHours(23, 0, 0, 0)
-  if (from.getHours() < 7) bed.setDate(bed.getDate() - 1)
+  bed.setHours(bedH, bedM, 0, 0)
+  bed.setDate(bed.getDate() - 1)
   while (bed < to) {
-    const wake = new Date(bed)
-    wake.setHours(31, 0, 0, 0) // 07:00 the next morning
-    const start = new Date(snapUpMs(Math.max(bed.getTime(), from.getTime())))
-    const end = snap15(new Date(Math.min(wake.getTime(), to.getTime())))
-    if (end - start >= 2 * 3600000) {
-      sleeps.push({ from: start.toISOString(), to: end.toISOString() })
+    const wake = new Date(bed.getTime() + durMin * 60000)
+    if (wake > from) {
+      const start = new Date(snapUpMs(Math.max(bed.getTime(), from.getTime())))
+      const end = snap15(new Date(Math.min(wake.getTime(), to.getTime())))
+      if (end - start >= 2 * 3600000) {
+        sleeps.push({ from: start.toISOString(), to: end.toISOString() })
+      }
     }
-    bed = new Date(wake)
-    bed.setHours(23, 0, 0, 0)
+    bed = new Date(bed)
+    bed.setDate(bed.getDate() + 1)
+    bed.setHours(bedH, bedM, 0, 0)
   }
   return sleeps
 }
 
-export function generatePlan(testTimeISO, now = new Date()) {
+export function generatePlan(testTimeISO, now = new Date(), sleepWindow) {
   const testTime = new Date(testTimeISO)
   const totalMin = Math.max(30, (testTime - now) / 60000)
   const hours = totalMin / 60
@@ -217,7 +234,7 @@ export function generatePlan(testTimeISO, now = new Date()) {
     ).toISOString(),
   }))
 
-  const sleeps = suggestSleeps(now.toISOString(), finalReviewAt.toISOString())
+  const sleeps = suggestSleeps(now.toISOString(), finalReviewAt.toISOString(), sleepWindow)
 
   // Never suggest a practice test mid-sleep — nudge it past the morning
   // wake-up recall (30 min after waking) — and keep at least 45 minutes
