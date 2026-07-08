@@ -179,42 +179,95 @@ function normalize(data, weakTopics, version, level) {
   }
 }
 
-export async function generateMaterialsAI(
-  rawText,
-  { weakTopics = [], version = 1, level = 'novice' } = {}
-) {
-  const client = new Anthropic({
+const makeClient = () =>
+  new Anthropic({
     apiKey: getApiKey(),
     dangerouslyAllowBrowser: true, // user's own key, stored locally, calls made from their browser
   })
 
+function friendlyApiError(err) {
+  if (err instanceof Anthropic.AuthenticationError)
+    return new Error('your API key was rejected — double-check it on the upload screen')
+  if (err instanceof Anthropic.RateLimitError)
+    return new Error('the Anthropic API is rate-limiting us — try again in a minute')
+  if (err instanceof Anthropic.APIConnectionError)
+    return new Error('couldn’t reach the Anthropic API — check your connection')
+  if (err instanceof Anthropic.APIError) return new Error(`Anthropic API error (${err.status})`)
+  return err
+}
+
+async function structuredCall({ system, prompt, schema, maxTokens = 16000 }) {
   let response
   try {
-    response = await client.messages.create({
+    response = await makeClient().messages.create({
       model: MODEL,
-      max_tokens: 16000,
+      max_tokens: maxTokens,
       thinking: { type: 'adaptive' },
-      system: SYSTEM_PROMPT,
-      output_config: { format: { type: 'json_schema', schema: MATERIALS_SCHEMA } },
-      messages: [
-        { role: 'user', content: buildUserPrompt(rawText, weakTopics, version, level) },
-      ],
+      system,
+      output_config: { format: { type: 'json_schema', schema } },
+      messages: [{ role: 'user', content: prompt }],
     })
   } catch (err) {
-    if (err instanceof Anthropic.AuthenticationError)
-      throw new Error('your API key was rejected — double-check it on the upload screen')
-    if (err instanceof Anthropic.RateLimitError)
-      throw new Error('the Anthropic API is rate-limiting us — try again in a minute')
-    if (err instanceof Anthropic.APIConnectionError)
-      throw new Error('couldn’t reach the Anthropic API — check your connection')
-    if (err instanceof Anthropic.APIError) throw new Error(`Anthropic API error (${err.status})`)
-    throw err
+    throw friendlyApiError(err)
   }
-
-  if (response.stop_reason === 'refusal') {
-    throw new Error('The AI declined to process these notes')
-  }
+  if (response.stop_reason === 'refusal') throw new Error('The AI declined this request')
   const textBlock = response.content.find((b) => b.type === 'text')
   if (!textBlock) throw new Error('AI returned no content')
-  return normalize(JSON.parse(textBlock.text), weakTopics, version, level)
+  return JSON.parse(textBlock.text)
+}
+
+export async function generateMaterialsAI(
+  rawText,
+  { weakTopics = [], version = 1, level = 'novice' } = {}
+) {
+  const data = await structuredCall({
+    system: SYSTEM_PROMPT,
+    prompt: buildUserPrompt(rawText, weakTopics, version, level),
+    schema: MATERIALS_SCHEMA,
+  })
+  return normalize(data, weakTopics, version, level)
+}
+
+// ---------- wake-up recall grading ----------
+
+const WAKE_SCHEMA = {
+  type: 'object',
+  properties: {
+    score: { type: 'integer', minimum: 0, maximum: 100 },
+    recalled: { type: 'array', items: { type: 'string' } },
+    missed: { type: 'array', items: { type: 'string' } },
+    feedback: { type: 'string' },
+  },
+  required: ['score', 'recalled', 'missed', 'feedback'],
+  additionalProperties: false,
+}
+
+const WAKE_SYSTEM = `You grade a student's "wake-up recall": right after waking they wrote down everything they remembered from yesterday's studying, WITHOUT looking at their notes. You compare it against the actual study materials.
+
+Grading rules:
+- score: 0-100 for how much of the material's substance came back. Reward correct ideas in the student's own words; exact phrasing is irrelevant. Penalize factual errors, not spelling or grammar.
+- recalled / missed: sort the materials' topic names (use the exact names given) by whether their core content surfaced in the dump.
+- feedback: 2-3 warm, specific sentences. Name the strongest recall, name the most important gap, and say what to do first today. Never shame a thin dump — blanks are information.`
+
+export async function gradeWakeRecallAI(answers, version) {
+  const materials = (version.summary || [])
+    .map((b) => `${b.topic}:\n- ${(b.points || []).join('\n- ')}`)
+    .join('\n\n')
+  const dump = Object.entries(answers)
+    .filter(([, v]) => String(v || '').trim())
+    .map(([k, v]) => `${k.toUpperCase()}:\n${v}`)
+    .join('\n\n')
+  const data = await structuredCall({
+    system: WAKE_SYSTEM,
+    prompt: `STUDY MATERIALS (topics and key points):\n${materials}\n\nSTUDENT'S WAKE-UP RECALL DUMP:\n${dump || '(they wrote nothing)'}`,
+    schema: WAKE_SCHEMA,
+    maxTokens: 4000,
+  })
+  return {
+    score: Math.max(0, Math.min(100, data.score)),
+    recalled: (data.recalled || []).map(String),
+    missed: (data.missed || []).map(String),
+    feedback: String(data.feedback || ''),
+    source: 'ai',
+  }
 }

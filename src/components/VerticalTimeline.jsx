@@ -1,4 +1,5 @@
 import { suggestSleeps, suggestStudyBlocks, TIPS } from '../lib/planner.js'
+import { SLEEP_RECS } from '../lib/wake.js'
 
 const clock = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
@@ -20,7 +21,7 @@ const SLEEP_SCIENCE =
 const SPACING_SCIENCE =
   'The gaps are on purpose: memory consolidates between sessions, and spaced blocks beat one long marathon — that’s the spacing effect.'
 
-const ORDER = { start: 0, now: 1, sleep: 2, study: 3, test: 4, final: 5, end: 6 }
+const ORDER = { start: 0, now: 1, sleep: 2, wake: 3, study: 4, test: 5, final: 6, end: 7 }
 
 // The plan as a simple vertical timeline: spaced study blocks, sleep,
 // practice tests, and the real test, in one chronological list. The next
@@ -33,6 +34,8 @@ export default function VerticalTimeline({
   compact = false,
   sessionCard = null,
   testCard = null,
+  wakeRecalls = [],
+  onWake = null,
 }) {
   const now = Date.now()
   const tests = plan?.tests || []
@@ -43,10 +46,31 @@ export default function VerticalTimeline({
   const upcoming = blocks.filter((b) => new Date(b.to).getTime() > now)
   const nextBlockFrom = upcoming[0]?.from || null
 
+  // A wake-up recall block follows every night of sleep that still has
+  // runway after it. "Done" = a recall was logged between falling asleep
+  // and ~6h after waking; the most recent undone one gets the CTA.
+  const endMs = new Date(plan.testAt || testTime).getTime()
+  const wakes = sleeps
+    .filter((s) => new Date(s.to).getTime() < endMs - 30 * 60000)
+    .map((s) => {
+      const wakeMs = new Date(s.to).getTime()
+      const logged = (wakeRecalls || []).find((w) => {
+        const t = new Date(w.at).getTime()
+        return t >= new Date(s.from).getTime() && t <= wakeMs + 6 * 3600000
+      })
+      return {
+        type: 'wake',
+        at: s.to,
+        logged,
+        active: !logged && now >= wakeMs && now <= wakeMs + 6 * 3600000,
+      }
+    })
+
   const entries = [
     { type: 'now', at: new Date(now).toISOString() },
     ...blocks.map((b) => ({ type: 'study', at: b.from, b })),
     ...sleeps.map((s) => ({ type: 'sleep', at: s.from, s })),
+    ...wakes,
     ...tests.map((t, i) => ({ type: 'test', at: t.suggestedAt, t, done: i < taken, next: i === taken })),
     { type: 'final', at: plan.finalReviewAt },
     { type: 'end', at: plan.testAt || testTime },
@@ -88,7 +112,7 @@ export default function VerticalTimeline({
 
   const rows = entries.map((e, i) => {
     const endAt = e.b?.to || e.s?.to || e.at
-    const past = e.type !== 'now' && new Date(endAt).getTime() < now
+    const past = e.type !== 'now' && !e.active && new Date(endAt).getTime() < now
     const key = `${e.type}-${i}`
 
     if (e.type === 'tip') {
@@ -138,6 +162,10 @@ export default function VerticalTimeline({
             <span className="vt-dot study" />
           ) : e.type === 'sleep' ? (
             <span className="vt-ico sleep">😴</span>
+          ) : e.type === 'wake' ? (
+            <span className={`vt-ico wake ${e.logged ? 'done' : ''} ${e.active ? 'next' : ''}`}>
+              {e.logged ? '✓' : '🌅'}
+            </span>
           ) : e.type === 'test' ? (
             <span className={`vt-ico test ${e.done ? 'done' : ''} ${e.next ? 'next' : ''}`}>
               {e.done ? '✓' : '🔥'}
@@ -174,10 +202,51 @@ export default function VerticalTimeline({
                 <span className="muted small"> · {clock(e.s.from)}–{clock(e.s.to)}</span>
               </p>
               <span className="vt-tip">
-                <strong>💤 Why sleep instead of cramming?</strong> {SLEEP_SCIENCE}
+                <strong>💤 Sleep is part of studying.</strong> {SLEEP_SCIENCE}
+                <span className="vt-tip-list">
+                  {SLEEP_RECS.map((r) => (
+                    <span key={r}>• {r}</span>
+                  ))}
+                </span>
               </span>
             </div>
           )}
+
+          {e.type === 'wake' &&
+            (e.logged ? (
+              <p className="vt-line">
+                <strong>✓ Wake-up recall</strong>
+                <span className="muted small">
+                  {' '}· {e.logged.score}% came back
+                </span>
+              </p>
+            ) : e.active && !compact && onWake ? (
+              <div className="wake-cta">
+                <div>
+                  <p className="vt-line">
+                    <strong>🌅 Wake-up recall</strong> · ~10 min
+                  </p>
+                  <p className="muted small" style={{ margin: 0 }}>
+                    Before you open your notes — write down everything you remember.
+                  </p>
+                </div>
+                <button className="btn small-btn" onClick={onWake}>
+                  Do it now 🌅
+                </button>
+              </div>
+            ) : (
+              <div className="vt-hover">
+                <p className="vt-line">
+                  <strong>🌅 Wake-up recall</strong> · ~10 min
+                </p>
+                <span className="vt-tip">
+                  <strong>🌅 First thing after waking</strong> — before any notes — write down
+                  every formula, concept, definition, and process you can retrieve. Sleep just
+                  consolidated it; pulling it out now locks it in. We grade your pour against
+                  your materials.
+                </span>
+              </div>
+            ))}
 
           {e.type === 'test' &&
             (showTestCard ? (

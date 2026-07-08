@@ -9,8 +9,10 @@ import StudyView from './components/StudyView.jsx'
 import FlashcardsView from './components/FlashcardsView.jsx'
 import TestView from './components/TestView.jsx'
 import ResultsView from './components/ResultsView.jsx'
+import WakeRecallView from './components/WakeRecallView.jsx'
 import { generateMaterials, LEVELS } from './lib/engine.js'
-import { generateMaterialsAI, hasApiKey } from './lib/ai.js'
+import { generateMaterialsAI, gradeWakeRecallAI, hasApiKey } from './lib/ai.js'
+import { houseGradeWakeRecall } from './lib/wake.js'
 import { generatePlan, suggestedStudyMin, suggestStudyBlocks } from './lib/planner.js'
 
 const STORAGE_KEY = 'cram-brulee-v5' // v5: loose plan — suggested test times only
@@ -28,6 +30,7 @@ const emptyState = {
   breakTimer: null, // { startedAt, lengthMin, until } while a break is running/over
   session: null, // { startedAt, lengthMin, until, breakEveryMin, nextBreakAt, mode, base }
   sessionGoal: null, // { targetMin, base: {study, active}, testN } — suggested study before the next test
+  wakeRecalls: [], // graded morning brain-dumps: { at, score, recalled, missed, feedback, source }
   intensity: 'steady', // chill | steady | intense — scales suggested study time
   level: 'novice', // novice | competent | expert — advances on strong practice-test scores
 }
@@ -111,7 +114,7 @@ export default function App() {
         ? state.session?.mode === 'recall'
           ? 'active'
           : 'study'
-        : { study: 'study', flashcards: 'active', test: 'active' }[state.screen]
+        : { study: 'study', flashcards: 'active', test: 'active', wake: 'active' }[state.screen]
     if (!bucket) return
     const TICK = 5
     const t = setInterval(() => {
@@ -295,6 +298,27 @@ export default function App() {
   const handleRefry = (weakTopics) =>
     update({ cookingJob: { kind: 'refry', weakTopics }, screen: 'cooking' })
 
+  // Grade a wake-up recall dump: Claude when a key is set, the local
+  // coverage grader otherwise (and as the fallback when the call fails).
+  const gradeWake = async (answers) => {
+    const version = currentVersion
+    const dumpText = Object.values(answers).filter(Boolean).join('\n')
+    let result
+    if (hasApiKey()) {
+      try {
+        result = await gradeWakeRecallAI(answers, version)
+      } catch (err) {
+        result = houseGradeWakeRecall(dumpText, version)
+        result.note = `AI grading unavailable (${err?.message || 'unknown error'}) — graded with the house engine instead.`
+      }
+    } else {
+      result = houseGradeWakeRecall(dumpText, version)
+    }
+    const entry = { ...result, at: new Date().toISOString() }
+    setState((s) => ({ ...s, wakeRecalls: [...(s.wakeRecalls || []), entry] }))
+    return entry
+  }
+
   const screens = {
     upload: (
       <Upload
@@ -338,10 +362,15 @@ export default function App() {
           }
         })()}
         level={state.level || 'novice'}
+        wakeRecalls={state.wakeRecalls || []}
         onLevelChange={handleLevelChange}
         onStartSession={startSession}
         onTest={() => update({ screen: 'test' })}
+        onWake={() => update({ screen: 'wake' })}
       />
+    ),
+    wake: currentVersion && (
+      <WakeRecallView onGrade={gradeWake} onBack={() => update({ screen: 'plan' })} />
     ),
     session: state.session && currentVersion && (
       <SessionView
@@ -511,6 +540,7 @@ export default function App() {
                       testTime={state.testTime}
                       results={state.results}
                       intensity={state.intensity || 'steady'}
+                      wakeRecalls={state.wakeRecalls || []}
                     />
                   </div>
                 )}

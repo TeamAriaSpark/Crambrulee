@@ -60,9 +60,11 @@ export default function PlanView({
   intensity,
   gauge,
   level,
+  wakeRecalls,
   onLevelChange,
   onStartSession,
   onTest,
+  onWake,
 }) {
   const tests = plan?.tests || []
   const taken = Math.min(results.length, tests.length)
@@ -324,6 +326,8 @@ export default function PlanView({
         intensity={intensity}
         sessionCard={sessionCard}
         testCard={testCard}
+        wakeRecalls={wakeRecalls}
+        onWake={onWake}
       />
     </div>
   )
