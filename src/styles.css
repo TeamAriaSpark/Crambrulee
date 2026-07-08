@@ -430,7 +430,7 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 
 /* stats row */
 .stats-row {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
   margin: 14px 0 6px;
 }
 .stat {
@@ -726,6 +726,7 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
   .overlay-card { padding: 20px 18px; }
   .suggest-time { font-size: 1.7rem; }
   .stats-row { grid-template-columns: 1fr 1fr; }
+  .stats-row .stat:last-child { grid-column: span 2; }
   .vt-row { grid-template-columns: 58px 28px 1fr; }
   .vt-time { font-size: 0.66rem; }
   .vt-body { padding-left: 8px; }

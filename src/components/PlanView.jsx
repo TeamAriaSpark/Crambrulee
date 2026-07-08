@@ -277,24 +277,29 @@ export default function PlanView({
               )}
               <span className="stat-sub">read / recall · aim ~30 / 70</span>
             </div>
-            <div className="stat" title="Your most recent practice test">
-              <span className="stat-label">🔥 last test</span>
+            <div
+              className="stat"
+              title="Your most recent practice test and level — score 80%+ to level up"
+            >
+              <span className="stat-label">🔥 last test · level</span>
               <span className="stat-value">
-                {last ? `${Math.round((last.score / last.total) * 100)}%` : '—'}
+                {last ? (
+                  <>
+                    {Math.round((last.score / last.total) * 100)}%
+                    <span className="stat-of"> · </span>
+                    {LEVEL_META[level]?.emoji} {level}
+                  </>
+                ) : (
+                  <>
+                    <span className="stat-of">— · </span>
+                    {LEVEL_META[level]?.emoji} {level}
+                  </>
+                )}
               </span>
               <span className="stat-sub">
                 {last
-                  ? `${last.score}/${last.total}${last.levelUp ? ' · leveled up! 🎉' : ''}`
-                  : 'none yet — test 1 awaits'}
-              </span>
-            </div>
-            <div className="stat" title="Ace a practice test (80%+) to level up">
-              <span className="stat-label">🌡️ level</span>
-              <span className="stat-value">
-                {LEVEL_META[level]?.emoji} {level}
-              </span>
-              <span className="stat-sub">
-                {taken}/{tests.length} tests taken
+                  ? `${last.score}/${last.total}${last.levelUp ? ' · leveled up! 🎉' : ''} · ${taken}/${tests.length} taken`
+                  : `none yet — test 1 awaits · 0/${tests.length} taken`}
               </span>
             </div>
           </div>
