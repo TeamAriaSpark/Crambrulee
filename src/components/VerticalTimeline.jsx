@@ -1,4 +1,4 @@
-import { suggestSleeps, suggestStudyBlocks } from '../lib/planner.js'
+import { suggestSleeps, suggestStudyBlocks, TIPS } from '../lib/planner.js'
 
 const clock = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
@@ -53,10 +53,53 @@ export default function VerticalTimeline({
     { type: 'end', at: plan.testAt || testTime },
   ].sort((a, b) => new Date(a.at) - new Date(b.at) || ORDER[a.type] - ORDER[b.type])
 
+  // Fill real gaps between study blocks / tests with a break-activity or
+  // brain-nutrient tip — the rest is part of the plan, so suggest how to
+  // spend it. Deterministic rotation keeps tips stable across renders.
+  if (!compact) {
+    let tipIdx = 0
+    for (let i = 0; i < entries.length - 1; i++) {
+      const cur = entries[i]
+      const nxt = entries[i + 1]
+      const workTypes = ['study', 'test']
+      if (!workTypes.includes(cur.type) || !workTypes.includes(nxt.type)) continue
+      const curEnd = new Date(cur.b?.to || cur.at).getTime()
+      const gapMin = Math.round((new Date(nxt.at).getTime() - curEnd) / 60000)
+      if (gapMin < 25) continue
+      entries.splice(i + 1, 0, {
+        type: 'tip',
+        at: new Date(curEnd).toISOString(),
+        tip: TIPS[tipIdx++ % TIPS.length],
+        gapMin,
+      })
+      i++
+    }
+  }
+
   const rows = entries.map((e, i) => {
     const endAt = e.b?.to || e.s?.to || e.at
     const past = e.type !== 'now' && new Date(endAt).getTime() < now
     const key = `${e.type}-${i}`
+
+    if (e.type === 'tip') {
+      return (
+        <div key={key} className={`vt-row vt-tiprow ${past ? 'past' : ''}`}>
+          <span className="vt-time" />
+          <span className="vt-spine">
+            <span className="vt-dot tip" />
+          </span>
+          <div className="vt-body vt-hover">
+            <p className="vt-line muted small">
+              {e.tip.emoji} {e.tip.tip}
+              <span className="vt-gap-len"> · ~{fmtMin(e.gapMin)} to recharge</span>
+            </p>
+            <span className="vt-tip">
+              {e.tip.emoji} <strong>{e.tip.tip}.</strong> {e.tip.why}
+            </span>
+          </div>
+        </div>
+      )
+    }
 
     if (e.type === 'now') {
       return (

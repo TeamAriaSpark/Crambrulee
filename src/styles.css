@@ -448,6 +448,9 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
   background: var(--card); border: 3px solid var(--custard-deep); margin-top: 5px;
 }
 .vt-dot.study { border-color: var(--caramel); background: var(--custard); }
+.vt-dot.tip { border-color: var(--step-break); background: #eef4e8; width: 10px; height: 10px; margin-top: 6px; }
+.vt-tiprow .vt-body { padding-bottom: 16px; }
+.vt-gap-len { color: var(--step-break); font-weight: 700; }
 .vt-dot.now {
   border-color: var(--caramel-deep); background: var(--caramel-deep);
   box-shadow: 0 0 0 4px rgba(168, 90, 16, 0.2);
