@@ -4,6 +4,9 @@ import { suggestSleeps, suggestedStudyMin, INTENSITY } from '../lib/planner.js'
 const clock = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
 
+// Hour-only form ("11 PM") for tight sleep bars.
+const clockShort = (iso) => new Date(iso).toLocaleTimeString([], { hour: 'numeric' })
+
 const fmtMin = (min) => (min >= 90 ? `${Math.round(min / 6) / 10} h` : `${min} min`)
 
 const clockFull = (iso) =>
@@ -177,7 +180,11 @@ export default function TimelinePanel({
             <div key={i} className="lt-sleep-wrap">
               <div className="lt-sleep" style={{ left: `${left}%`, width: `${width}%` }}>
                 <span className="lt-sleep-text">
-                  {width >= 16 ? `😴 sleep ${clock(s.from)}–${clock(s.to)}` : '💤'}
+                  {width >= 24
+                    ? `😴 sleep ${clock(s.from)}–${clock(s.to)}`
+                    : width >= 12
+                      ? `😴 ${clockShort(s.from)}–${clockShort(s.to)}`
+                      : '💤'}
                 </span>
                 <span className="lt-handle left" onPointerDown={startDrag(i, 'from')} />
                 <span className="lt-handle right" onPointerDown={startDrag(i, 'to')} />
@@ -238,9 +245,11 @@ export default function TimelinePanel({
             </span>
           </div>
         ))}
-        <span className="lt-start" title="When you started this cram plan">
-          started {clock(plan.startedAt)}
-        </span>
+        {nowPct >= 10 && (
+          <span className="lt-start" title="When you started this cram plan">
+            started {clock(plan.startedAt)}
+          </span>
+        )}
         <div className="lt-now" style={{ left: `${Math.min(Math.max(nowPct, 4), 92)}%` }}>
           <span className="lt-now-dot" />
           <span className="lt-now-label">now</span>

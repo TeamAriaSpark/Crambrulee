@@ -65,10 +65,7 @@ export default function TimeSelect({ onDone, onBack }) {
             ))}
           </select>
         </label>
-        <span className="muted small intensity-blurb">
-          {INTENSITY[intensity].blurb} — it sets how many hours of study we suggest before each
-          practice test.
-        </span>
+        <span className="muted small intensity-blurb">{INTENSITY[intensity].blurb}.</span>
       </div>
 
       <div className="step-row">

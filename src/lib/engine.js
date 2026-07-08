@@ -170,13 +170,24 @@ function shuffle(arr, seed = 1) {
 function buildTest(flashcards, questionCount, seed) {
   const pool = flashcards.filter((c) => c.a.length <= 140)
   const questions = []
-  const answers = pool.map((c) => c.a)
   // One RNG stream for the whole test: sequential draws stay well mixed,
   // where per-question reseeding made answer positions cluster.
   const rand = rng(seed)
   for (const card of shuffle(pool, seed).slice(0, questionCount)) {
+    // Distractors must be the same kind of answer as the correct one — a
+    // single-word cloze answer among sentence-long definitions (or vice
+    // versa) makes the right option obvious by shape alone.
+    const isCloze = card.kind === 'cloze'
+    const sameKind = [
+      ...new Set(
+        pool
+          .filter((c) => (c.kind === 'cloze') === isCloze && c.a !== card.a)
+          .map((c) => c.a)
+      ),
+    ]
+    const anyKind = [...new Set(pool.filter((c) => c.a !== card.a).map((c) => c.a))]
     const distractors = shuffle(
-      answers.filter((a) => a !== card.a),
+      sameKind.length >= 3 ? sameKind : anyKind,
       seed + questions.length
     ).slice(0, 3)
     while (distractors.length < 3) distractors.push('None of the above')

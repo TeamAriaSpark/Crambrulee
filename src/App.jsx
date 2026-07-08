@@ -261,12 +261,15 @@ export default function App() {
 
   const handleCooked = (fresh) => {
     if (cookingJob.kind === 'refry' || cookingJob.kind === 'recook') {
+      // Land back on the plan: the fresh batch is what the next study
+      // session serves, and the standalone study screen has no session
+      // timer, breaks, or recall toggle.
       setState((s) => ({
         ...s,
         versions: [...s.versions, fresh],
         activeVersion: s.versions.length,
         cookingJob: null,
-        screen: 'study',
+        screen: 'plan',
       }))
     } else {
       const plan = generatePlan(state.testTime)

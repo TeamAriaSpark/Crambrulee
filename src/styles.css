@@ -629,4 +629,13 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 @media (max-width: 560px) {
   .card { padding: 18px; }
   .masthead { flex-direction: column; align-items: flex-start; }
+  .head-right { width: 100%; align-items: stretch; }
+  .tl-pop > .countdown-chip { width: 100%; text-align: center; }
+  .tl-pop > .session-chip { justify-content: space-between; font-size: 0.88rem; }
+  /* the timeline is too dense for in-bar text on a phone — bars + hover only */
+  .lt-sleep-text, .lt-studyspan-text { display: none; }
+  .lt-mtip { max-width: 200px; }
+  .session-tools { align-items: flex-start; }
+  .overlay-card { padding: 20px 18px; }
+  .suggest-time { font-size: 1.7rem; }
 }
