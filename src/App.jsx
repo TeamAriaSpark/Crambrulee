@@ -5,6 +5,7 @@ import Cooking, { COOK_STEPS, REFRY_STEPS } from './components/Cooking.jsx'
 import PlanView from './components/PlanView.jsx'
 import SessionView, { sessionRecommendation } from './components/SessionView.jsx'
 import VerticalTimeline from './components/VerticalTimeline.jsx'
+import RelaxedTimeline from './components/RelaxedTimeline.jsx'
 import StudyView from './components/StudyView.jsx'
 import FlashcardsView from './components/FlashcardsView.jsx'
 import TestView from './components/TestView.jsx'
@@ -33,6 +34,7 @@ const emptyState = {
   wakeRecalls: [], // graded morning brain-dumps: { at, score, recalled, missed, feedback, source }
   intensity: 'steady', // chill | steady | intense — scales suggested study time
   sleepWindow: null, // { bedMin, wakeMin } — the student's chosen sleep hours
+  cramMode: false, // false: daily study portions · true: every block scheduled
   level: 'novice', // novice | competent | expert — advances on strong practice-test scores
 }
 
@@ -388,6 +390,8 @@ export default function App() {
         })()}
         level={state.level || 'novice'}
         wakeRecalls={state.wakeRecalls || []}
+        cramMode={Boolean(state.cramMode)}
+        onToggleCram={() => setState((s) => ({ ...s, cramMode: !s.cramMode }))}
         onLevelChange={handleLevelChange}
         onStartSession={startSession}
         onTest={() => update({ screen: 'test' })}
@@ -628,14 +632,25 @@ export default function App() {
                 {state.plan && (
                   <div className="tl-panel vt-panel">
                     <h3 className="lt-heading">⏳ Your runway to test day</h3>
-                    <VerticalTimeline
-                      compact
-                      plan={state.plan}
-                      testTime={state.testTime}
-                      results={state.results}
-                      intensity={state.intensity || 'steady'}
-                      wakeRecalls={state.wakeRecalls || []}
-                    />
+                    {state.cramMode ? (
+                      <VerticalTimeline
+                        compact
+                        plan={state.plan}
+                        testTime={state.testTime}
+                        results={state.results}
+                        intensity={state.intensity || 'steady'}
+                        wakeRecalls={state.wakeRecalls || []}
+                      />
+                    ) : (
+                      <RelaxedTimeline
+                        compact
+                        plan={state.plan}
+                        testTime={state.testTime}
+                        results={state.results}
+                        intensity={state.intensity || 'steady'}
+                        wakeRecalls={state.wakeRecalls || []}
+                      />
+                    )}
                   </div>
                 )}
               </div>

@@ -2,15 +2,16 @@ import { useState } from 'react'
 import { LEVELS, LEVEL_META } from '../lib/engine.js'
 import { suggestStudyBlocks } from '../lib/planner.js'
 import VerticalTimeline from './VerticalTimeline.jsx'
+import RelaxedTimeline from './RelaxedTimeline.jsx'
 import Tour from './Tour.jsx'
 
 const TOUR_KEY = 'cram-brulee-tour-done'
 const TOUR_STEPS = [
   {
-    selector: '.cal',
+    selector: '.plan-timeline',
     emoji: '🗓️',
     title: 'Your plan, day by day',
-    body: 'One column per day: spaced study blocks, sleep, wake-up recall, practice tests, and your real test. The gaps between blocks are deliberate — that’s when memory consolidates.',
+    body: 'Each day gets a study portion — hit the hours whenever suits you — plus sleep, wake-up recall, and practice tests. Want every block scheduled? Hit 🔥 Cram Mode.',
   },
   {
     selector: '.stats-row',
@@ -61,6 +62,8 @@ export default function PlanView({
   gauge,
   level,
   wakeRecalls,
+  cramMode,
+  onToggleCram,
   onLevelChange,
   onStartSession,
   onTest,
@@ -93,8 +96,8 @@ export default function PlanView({
   const sessionCard = (
     <div className="start-box vt-session">
       <h3>
-        📚 {nextBlock ? 'Next study block' : 'Study session'}
-        {nextBlock && (
+        📚 {cramMode && nextBlock ? 'Next study block' : 'Study session'}
+        {cramMode && nextBlock && (
           <span className="pill" style={{ marginLeft: 8 }}>
             suggested {clock(nextBlock.from)}–{clock(nextBlock.to)}
           </span>
@@ -322,16 +325,45 @@ export default function PlanView({
         />
       )}
 
-      <VerticalTimeline
-        plan={plan}
-        testTime={testTime}
-        results={results}
-        intensity={intensity}
-        sessionCard={sessionCard}
-        testCard={testCard}
-        wakeRecalls={wakeRecalls}
-        onWake={onWake}
-      />
+      <div className="cram-row">
+        <span className="muted small">
+          {cramMode
+            ? '🔥 Every block scheduled to the quarter hour — follow the calendar.'
+            : 'Loose plan: hit each day’s hours whenever suits you.'}
+        </span>
+        <button
+          className={`btn ${cramMode ? 'ghost' : ''} cram-btn`}
+          onClick={onToggleCram}
+        >
+          {cramMode ? '✕ Exit Cram Mode' : 'Cram Mode! 🔥'}
+        </button>
+      </div>
+
+      <div className="plan-timeline">
+        {cramMode ? (
+          <VerticalTimeline
+            plan={plan}
+            testTime={testTime}
+            results={results}
+            intensity={intensity}
+            sessionCard={sessionCard}
+            testCard={testCard}
+            wakeRecalls={wakeRecalls}
+            onWake={onWake}
+          />
+        ) : (
+          <RelaxedTimeline
+            plan={plan}
+            testTime={testTime}
+            results={results}
+            intensity={intensity}
+            sessionCard={sessionCard}
+            testCard={testCard}
+            wakeRecalls={wakeRecalls}
+            onWake={onWake}
+          />
+        )}
+      </div>
     </div>
   )
 }

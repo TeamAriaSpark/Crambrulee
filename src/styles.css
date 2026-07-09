@@ -369,29 +369,17 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 }
 .preset-chip:hover { border-color: var(--custard-deep); }
 .preset-chip.selected { border-color: var(--caramel); background: var(--custard); color: var(--caramel-deep); }
-.intensity-row {
-  display: flex; align-items: center; justify-content: center; gap: 12px;
-  flex-wrap: wrap; margin: 16px 0 4px;
+.setup-row {
+  display: flex; align-items: flex-end; justify-content: center; gap: 12px;
+  flex-wrap: wrap; margin: 20px 0 8px;
 }
-.intensity-pick { display: inline-flex; align-items: center; gap: 8px; }
-.intensity-pick select {
+.setup-pick { display: flex; flex-direction: column; gap: 3px; }
+.setup-pick select, .setup-pick input {
   font: inherit; font-size: 0.9rem; font-weight: 700; cursor: pointer;
-  border: 2px solid var(--line); border-radius: 999px; padding: 7px 14px;
+  border: 2px solid var(--line); border-radius: 12px; padding: 7px 12px;
   background: var(--card); color: var(--cocoa);
 }
-.intensity-blurb { max-width: 380px; text-align: left; }
-.sleep-row {
-  display: flex; align-items: center; justify-content: center; gap: 14px;
-  flex-wrap: wrap; margin: 14px 0 4px;
-}
-.sleep-times { display: flex; gap: 10px; }
-.sleep-pick { display: flex; flex-direction: column; gap: 3px; }
-.sleep-pick input {
-  font: inherit; font-weight: 700; cursor: pointer;
-  border: 2px solid var(--line); border-radius: 12px; padding: 6px 10px;
-  background: var(--card); color: var(--cocoa);
-}
-.sleep-note { max-width: 360px; text-align: left; }
+.setup-note { text-align: center; margin: 0 auto; max-width: 480px; }
 
 /* ---------- cooking ---------- */
 .cooking { text-align: center; padding: 60px 26px; }
@@ -465,6 +453,46 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 .stat-sub { font-size: 0.72rem; color: var(--cocoa-soft); }
 .gauge-track.mini { height: 7px; margin: 3px 0 2px; }
 .split-track.mini { height: 7px; margin: 3px 0 2px; background: var(--card); border: 1.5px solid var(--custard-deep); }
+
+/* cram mode toggle */
+.cram-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-top: 14px;
+}
+.cram-btn { padding: 9px 22px; font-size: 0.95rem; }
+.plan-timeline { min-width: 0; }
+
+/* relaxed plan: daily portions + anchors */
+.rt { margin-top: 4px; }
+.rt-day { margin-top: 14px; }
+.rt-dayhead {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding-bottom: 5px; border-bottom: 1.5px solid var(--line); margin-bottom: 6px;
+}
+.rt-dayhead strong { font-size: 1rem; }
+.rt-dayhead strong.today { color: var(--caramel-deep); }
+.rt-date { font-size: 0.74rem; font-weight: 700; color: var(--cocoa-soft); }
+.rt-quota {
+  margin-left: auto; font-size: 0.82rem; font-weight: 700; color: var(--caramel-deep);
+  background: var(--custard); border: 1.5px solid var(--custard-deep);
+  border-radius: 999px; padding: 2px 12px;
+}
+.rt-row {
+  display: grid; grid-template-columns: 76px 1fr; gap: 0 12px;
+  padding: 4px 0; align-items: baseline;
+}
+.rt-time {
+  text-align: right; font-size: 0.74rem; font-weight: 700; color: var(--cocoa-soft);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.rt-label { min-width: 0; }
+.rt-row.past { opacity: 0.5; }
+.rt-row.rt-end .rt-label { font-size: 1.05rem; }
+.rt-wake-cta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.rt-card { margin: 8px 0 8px 88px; }
+.rt-card .vt-now-label { margin-bottom: 4px; display: inline-block; }
+.rt .vt-tip { left: 88px; }
+.rt.compact .rt-card { margin-left: 0; }
 
 /* calendar plan view */
 .cal { display: grid; gap: 12px; margin-top: 14px; align-items: start; }
@@ -788,5 +816,8 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
   .stats-row .stat:last-child { grid-column: span 2; }
   .wake-cols { grid-template-columns: 1fr; }
   .cal.cols-2, .cal.cols-3, .cal.cols-4 { grid-template-columns: 1fr; }
+  .rt-card { margin-left: 0; }
+  .rt .vt-tip { left: 0; }
+  .rt-quota { margin-left: 0; }
   .start-btn { width: 100%; }
 }

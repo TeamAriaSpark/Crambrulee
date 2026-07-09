@@ -70,8 +70,8 @@ export default function TimeSelect({ onDone, onBack }) {
         ))}
       </div>
 
-      <div className="intensity-row">
-        <label className="intensity-pick">
+      <div className="setup-row">
+        <label className="setup-pick">
           <span className="muted small">Intensity</span>
           <select value={intensity} onChange={(e) => setIntensity(e.target.value)}>
             {Object.entries(INTENSITY).map(([key, v]) => (
@@ -81,26 +81,19 @@ export default function TimeSelect({ onDone, onBack }) {
             ))}
           </select>
         </label>
-        <span className="muted small intensity-blurb">{INTENSITY[intensity].blurb}.</span>
+        <label className="setup-pick">
+          <span className="muted small">😴 Bedtime</span>
+          <input type="time" value={bed} onChange={(e) => setBed(e.target.value)} />
+        </label>
+        <label className="setup-pick">
+          <span className="muted small">🌅 Wake up</span>
+          <input type="time" value={wake} onChange={(e) => setWake(e.target.value)} />
+        </label>
       </div>
-
-      <div className="sleep-row">
-        <div className="sleep-times">
-          <label className="sleep-pick">
-            <span className="muted small">😴 Bedtime</span>
-            <input type="time" value={bed} onChange={(e) => setBed(e.target.value)} />
-          </label>
-          <label className="sleep-pick">
-            <span className="muted small">🌅 Wake up</span>
-            <input type="time" value={wake} onChange={(e) => setWake(e.target.value)} />
-          </label>
-        </div>
-        <span className="muted small sleep-note">
-          We’ll build your plan around <strong>{sleepH} h</strong> of sleep — don’t skip it. Deep
-          sleep is when your brain files the day’s studying into long-term memory, so a rested
-          brain out-scores an all-nighter every time.
-        </span>
-      </div>
+      <p className="muted small setup-note">
+        {INTENSITY[intensity].blurb} · <strong>{sleepH} h</strong> of sleep planned — deep sleep
+        is when studying sticks, so don’t skip it.
+      </p>
 
       <div className="step-row">
         <button className="btn ghost" onClick={onBack}>
