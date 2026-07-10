@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LEVELS, LEVEL_META } from '../lib/engine.js'
+import { LEVEL_META } from '../lib/engine.js'
 import { suggestStudyBlocks } from '../lib/planner.js'
 import VerticalTimeline from './VerticalTimeline.jsx'
 import Tour from './Tour.jsx'
@@ -15,20 +15,14 @@ const TOUR_STEPS = [
   {
     selector: '.vt-test',
     emoji: '🔥',
-    title: 'The milestone that matters',
-    body: 'Practice tests simulate the real thing and show your last score. Afterwards your materials are rebuilt around what you missed — 80%+ levels you up.',
+    title: 'Three tests, rising heat',
+    body: 'Your plan schedules three practice tests before the real one — novice, then competent, then expert. Whatever you miss gets refried into your materials, and 80%+ levels you up.',
   },
   {
     selector: '.chip-group',
     emoji: '⏲️',
     title: 'Countdown & Cram Mode',
     body: 'The timer counts down to your test — hover it for your day-by-day runway. Hit Cram Mode! and the AI schedules every block, minute by minute.',
-  },
-  {
-    selector: '.test-levels',
-    emoji: '🌡️',
-    title: 'Pick your heat',
-    body: 'Every practice test comes in three difficulties — your level is highlighted. Score 80%+ at your level and you move up; your materials follow.',
   },
 ]
 
@@ -63,8 +57,6 @@ export default function PlanView({
   const now = Date.now()
   const tests = plan?.tests || []
   const taken = Math.min(results.length, tests.length)
-  const nextTest = tests[taken] || null
-  const last = results[results.length - 1] || null
 
   const blocks = suggestStudyBlocks(plan, intensity)
   const nextBlock = blocks.find((b) => new Date(b.to).getTime() > now) || null
@@ -231,79 +223,67 @@ export default function PlanView({
     </div>
   )
 
-  // One card for everything test: next milestone + last result + a take
-  // button for each of the three difficulties (your level highlighted).
-  const levelButtons = (
-    <div className="test-levels">
-      <span className="test-levels-label muted small">Pick your heat:</span>
-      {LEVELS.map((l) => (
-        <button
-          key={l}
-          className={`btn test-level-btn ${l === level ? '' : 'ghost'}`}
-          onClick={() => onTest(l)}
-          title={`Take the practice test at ${l} difficulty`}
-        >
-          {LEVEL_META[l]?.emoji} {l.charAt(0).toUpperCase() + l.slice(1)}
-          {l === level && <span className="mode-rec">your level</span>}
-        </button>
-      ))}
-    </div>
-  )
-
-  const lastLine = last ? (
-    <>
-      Last score: <strong>{Math.round((last.score / last.total) * 100)}%</strong> ({last.score}/
-      {last.total}
-      {last.level ? ` at ${LEVEL_META[last.level]?.emoji} ${last.level}` : ''})
-      {last.levelUp ? ' · leveled up! 🎉' : ''} · {taken}/{tests.length} taken
-    </>
-  ) : (
-    <>No tests taken yet — this is the milestone that matters</>
-  )
-
+  // One card for everything test: the plan's three practice tests — one at
+  // each difficulty, rising heat — with status and a take button per row.
+  const TEST_LADDER = ['novice', 'competent', 'expert']
   const testCard = (
-    <div className="test-suggest vt-test">
-      {nextTest ? (
-        <>
-          <div className="suggest-main">
-            <div className="milestone-eyebrow">
-              🔥 Practice test {nextTest.n} of {tests.length} — suggested at
+    <div className="test-suggest ladder vt-test">
+      <div className="milestone-eyebrow">
+        🔥 Your practice tests — one at each heat
+      </div>
+      {tests.map((t, i) => {
+        const lvl = t.level || TEST_LADDER[Math.min(i, TEST_LADDER.length - 1)]
+        const done = i < taken
+        const isNext = i === taken
+        const res = done ? results[i] : null
+        return (
+          <div key={t.id} className={`ptest-row ${done ? 'done' : isNext ? 'next' : ''}`}>
+            <div className="ptest-main">
+              <span className="ptest-title">
+                <strong>
+                  {done ? '✓ ' : ''}
+                  {LEVEL_META[lvl]?.emoji} {lvl.charAt(0).toUpperCase() + lvl.slice(1)}
+                </strong>
+                <span className="muted small"> · test {t.n} of {tests.length}</span>
+              </span>
+              <span className="muted small">
+                {done && res ? (
+                  <>
+                    taken · <strong>{Math.round((res.score / res.total) * 100)}%</strong> (
+                    {res.score}/{res.total}){res.levelUp ? ' · leveled up! 🎉' : ''}
+                  </>
+                ) : (
+                  <>
+                    suggested {clock(t.suggestedAt)} · {fmtIn(t.suggestedAt)}
+                  </>
+                )}
+              </span>
             </div>
-            <div className="suggest-time">
-              {clock(nextTest.suggestedAt)}
-              <span className="suggest-in">{fmtIn(nextTest.suggestedAt)}</span>
-            </div>
-            <p className="muted small" style={{ margin: '2px 0 0' }}>
-              {lastLine}
-              {LEVELS.indexOf(level) < LEVELS.length - 1 && (
-                <>
-                  {' '}· <strong>80%+</strong> at your level →{' '}
-                  {LEVEL_META[LEVELS[LEVELS.indexOf(level) + 1]]?.emoji}{' '}
-                  <strong>{LEVELS[LEVELS.indexOf(level) + 1]}</strong>
-                </>
-              )}
-            </p>
+            {done ? (
+              <button className="btn ghost small-btn" onClick={() => onTest(lvl)}>
+                retake
+              </button>
+            ) : (
+              <button
+                className={`btn ${isNext ? '' : 'ghost small-btn'}`}
+                onClick={() => onTest(lvl)}
+              >
+                {isNext ? 'Take it 🔥' : 'take early'}
+              </button>
+            )}
           </div>
-          {levelButtons}
-        </>
-      ) : (
-        <>
-          <div className="suggest-main">
-            <div className="milestone-eyebrow">🏁 All tests taken — final review at</div>
-            <div className="suggest-time">{clock(plan.finalReviewAt)}</div>
-            <p className="muted small" style={{ margin: '2px 0 0' }}>
-              {last && (
-                <>
-                  Last score: <strong>{Math.round((last.score / last.total) * 100)}%</strong>{' '}
-                  ({last.score}/{last.total}) ·{' '}
-                </>
-              )}
-              One calm pass over the cheat sheet, then step away — you’re ready.
-            </p>
-          </div>
-          {levelButtons}
-        </>
-      )}
+        )
+      })}
+      <p className="muted small ptest-note">
+        {taken >= tests.length ? (
+          <>
+            🏁 All three taken — final review at <strong>{clock(plan.finalReviewAt)}</strong>:
+            one calm pass, then rest.
+          </>
+        ) : (
+          <>Score 80%+ to level your materials up · whatever you miss gets refried in.</>
+        )}
+      </p>
     </div>
   )
 

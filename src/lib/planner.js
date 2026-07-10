@@ -234,10 +234,14 @@ export function generatePlan(testTimeISO, now = new Date(), sleepWindow) {
   const finalReviewAt = snap15(addMin(testTime, -bufferMin))
   const workMin = Math.max(20, (finalReviewAt - now) / 60000)
 
-  const plannedTests = hours <= 5 ? 2 : hours <= 24 ? 3 : 4
+  // Always three practice tests, one at each difficulty — a rising ladder
+  // of heat on the way to the real thing.
+  const plannedTests = 3
+  const TEST_LADDER = ['novice', 'competent', 'expert']
   const tests = Array.from({ length: plannedTests }, (_, i) => ({
     id: `test-${i + 1}`,
     n: i + 1,
+    level: TEST_LADDER[i],
     suggestedAt: snap15(
       addMin(now, Math.round((workMin * (i + 1)) / (plannedTests + 0.35)))
     ).toISOString(),

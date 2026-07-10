@@ -56,7 +56,7 @@ export default function RelaxedTimeline({
   const anchors = [
     ...sleeps.map((s) => ({ type: 'sleep', at: s.from, s })),
     ...wakes,
-    ...tests.map((t, i) => ({ type: 'test', at: t.suggestedAt, t, done: i < taken, next: i === taken })),
+    ...tests.map((t, i) => ({ type: 'test', at: t.suggestedAt, t, lvl: t.level || ['novice', 'competent', 'expert'][Math.min(i, 2)], done: i < taken, next: i === taken })),
     { type: 'final', at: plan.finalReviewAt },
     { type: 'end', at: plan.testAt || testTime },
   ].sort((a, b) => new Date(a.at) - new Date(b.at))
@@ -168,7 +168,10 @@ export default function RelaxedTimeline({
             <strong>
               {a.done ? '✓' : '🔥'} Practice test {a.t.n}
             </strong>
-            {a.done && <span className="muted small"> · taken</span>}
+            <span className="muted small">
+              {' '}· {{ novice: '🌱', competent: '🍳', expert: '👨‍🍳' }[a.lvl]} {a.lvl}
+              {a.done ? ' · taken' : ''}
+            </span>
           </span>
           <span className="vt-tip">
             {a.done ? (

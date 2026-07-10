@@ -68,7 +68,7 @@ export default function VerticalTimeline({
     ...blocks.map((b) => ({ type: 'study', at: b.from, b })),
     ...sleeps.map((s) => ({ type: 'sleep', at: s.from, s })),
     ...wakes,
-    ...tests.map((t, i) => ({ type: 'test', at: t.suggestedAt, t, done: i < taken, next: i === taken })),
+    ...tests.map((t, i) => ({ type: 'test', at: t.suggestedAt, t, lvl: t.level || ['novice', 'competent', 'expert'][Math.min(i, 2)], done: i < taken, next: i === taken })),
     { type: 'final', at: plan.finalReviewAt },
     { type: 'end', at: plan.testAt || testTime },
   ].sort((a, b) => new Date(a.at) - new Date(b.at) || ORDER[a.type] - ORDER[b.type])
@@ -263,7 +263,10 @@ export default function VerticalTimeline({
                   <strong>
                     {e.done ? '✓' : '🔥'} Practice test {e.t.n}
                   </strong>
-                  {e.done && <span className="muted small"> · taken</span>}
+                  <span className="muted small">
+                    {' '}· {{ novice: '🌱', competent: '🍳', expert: '👨‍🍳' }[e.lvl]} {e.lvl}
+                    {e.done ? ' · taken' : ''}
+                  </span>
                 </p>
                 <span className="vt-tip">
                   {e.done ? (
