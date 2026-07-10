@@ -509,7 +509,10 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
 .split-track.mini { height: 7px; margin: 3px 0 2px; background: var(--card); border: 1.5px solid var(--custard-deep); }
 
 /* consolidated study hub + wake banner */
-.hub-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.hub-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.hub-title { min-width: 0; }
+.hub-title h3 { margin: 0; }
+.hub-desc { margin: 2px 0 0; }
 .hub-quota {
   font-size: 0.82rem; font-weight: 800; color: var(--caramel-deep);
   background: #fffdf8; border: 1.5px solid var(--custard-deep);

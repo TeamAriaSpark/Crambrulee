@@ -117,14 +117,17 @@ export default function PlanView({
   const sessionCard = (
     <div className="start-box vt-session study-hub">
       <div className="hub-head">
-        <h3>
-          📚 Study
-          {cramMode && nextBlock && (
-            <span className="pill" style={{ marginLeft: 8 }}>
-              next block {clock(nextBlock.from)}–{clock(nextBlock.to)}
-            </span>
-          )}
-        </h3>
+        <div className="hub-title">
+          <h3>
+            📚 Active Study Session
+            {cramMode && nextBlock && (
+              <span className="pill" style={{ marginLeft: 8 }}>
+                next block {clock(nextBlock.from)}–{clock(nextBlock.to)}
+              </span>
+            )}
+          </h3>
+          <p className="hub-desc muted small">Timed study session focused on active recall</p>
+        </div>
         {todayLeftMin >= 15 && (
           <span className="hub-quota" title="Today's remaining portion — split it however suits you">
             ~{fmtDuration(todayLeftMin)} left today
