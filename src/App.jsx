@@ -635,16 +635,46 @@ export default function App() {
           state.screen !== 'upload' &&
           state.screen !== 'time' && (
             <div className="head-right">
-              <div className={`tl-pop chip-group ${tlPinned ? 'pinned' : ''}`}>
-                <button
-                  className={`countdown-chip chip-seg timer-seg ${
-                    state.screen === 'plan' && state.plan ? '' : 'solo'
-                  }`}
-                  onClick={() => setTlPinned((p) => !p)}
-                  title="Hover or click for your full timeline"
-                >
-                  ⏲️ {countdown.text}
-                </button>
+              <div className="chip-group">
+                {/* the runway popover opens from the timer half only */}
+                <div className={`tl-pop ${tlPinned ? 'pinned' : ''}`}>
+                  <button
+                    className={`countdown-chip chip-seg timer-seg ${
+                      state.screen === 'plan' && state.plan ? '' : 'solo'
+                    }`}
+                    onClick={() => setTlPinned((p) => !p)}
+                    title="Hover or click for your full timeline"
+                  >
+                    ⏲️ {countdown.text}
+                  </button>
+                  {state.plan && (
+                    <div className="tl-panel vt-panel">
+                      <h3 className="lt-heading">⏳ Your runway to test day</h3>
+                      {state.cramMode ? (
+                        <VerticalTimeline
+                          compact
+                          plan={state.plan}
+                          testTime={state.testTime}
+                          results={state.results}
+                          intensity={state.intensity || 'steady'}
+                          wakeRecalls={state.wakeRecalls || []}
+                        />
+                      ) : (
+                        <RelaxedTimeline
+                          compact
+                          plan={state.plan}
+                          testTime={state.testTime}
+                          results={state.results}
+                          intensity={state.intensity || 'steady'}
+                          wakeRecalls={state.wakeRecalls || []}
+                          onWake={
+                            state.screen === 'plan' ? () => update({ screen: 'wake' }) : null
+                          }
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
                 {state.screen === 'plan' && state.plan && (
                   <button
                     className={`chip-seg cram-seg ${state.cramMode ? 'on' : ''}`}
@@ -657,33 +687,6 @@ export default function App() {
                   >
                     {state.cramMode ? '✕ Cram Mode' : 'Cram Mode! 🔥'}
                   </button>
-                )}
-                {state.plan && (
-                  <div className="tl-panel vt-panel">
-                    <h3 className="lt-heading">⏳ Your runway to test day</h3>
-                    {state.cramMode ? (
-                      <VerticalTimeline
-                        compact
-                        plan={state.plan}
-                        testTime={state.testTime}
-                        results={state.results}
-                        intensity={state.intensity || 'steady'}
-                        wakeRecalls={state.wakeRecalls || []}
-                      />
-                    ) : (
-                      <RelaxedTimeline
-                        compact
-                        plan={state.plan}
-                        testTime={state.testTime}
-                        results={state.results}
-                        intensity={state.intensity || 'steady'}
-                        wakeRecalls={state.wakeRecalls || []}
-                        onWake={
-                          state.screen === 'plan' ? () => update({ screen: 'wake' }) : null
-                        }
-                      />
-                    )}
-                  </div>
                 )}
               </div>
             </div>
