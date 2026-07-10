@@ -25,10 +25,10 @@ const TOUR_STEPS = [
     body: 'The timer counts down to your test — hover it for your day-by-day runway. Hit Cram Mode! and the AI schedules every block, minute by minute.',
   },
   {
-    selector: '.level-select',
+    selector: '.test-levels',
     emoji: '🌡️',
-    title: 'Difficulty rises with you',
-    body: 'Materials start at novice. Ace a practice test to move up automatically, or pick a level yourself any time.',
+    title: 'Pick your heat',
+    body: 'Every practice test comes in three difficulties — your level is highlighted. Score 80%+ at your level and you move up; your materials follow.',
   },
 ]
 
@@ -56,7 +56,6 @@ export default function PlanView({
   level,
   wakeRecalls,
   cramMode,
-  onLevelChange,
   onStartSession,
   onTest,
   onWake,
@@ -232,7 +231,36 @@ export default function PlanView({
     </div>
   )
 
-  // One card for everything test: next milestone + last result + the button.
+  // One card for everything test: next milestone + last result + a take
+  // button for each of the three difficulties (your level highlighted).
+  const levelButtons = (
+    <div className="test-levels">
+      <span className="test-levels-label muted small">Pick your heat:</span>
+      {LEVELS.map((l) => (
+        <button
+          key={l}
+          className={`btn test-level-btn ${l === level ? '' : 'ghost'}`}
+          onClick={() => onTest(l)}
+          title={`Take the practice test at ${l} difficulty`}
+        >
+          {LEVEL_META[l]?.emoji} {l.charAt(0).toUpperCase() + l.slice(1)}
+          {l === level && <span className="mode-rec">your level</span>}
+        </button>
+      ))}
+    </div>
+  )
+
+  const lastLine = last ? (
+    <>
+      Last score: <strong>{Math.round((last.score / last.total) * 100)}%</strong> ({last.score}/
+      {last.total}
+      {last.level ? ` at ${LEVEL_META[last.level]?.emoji} ${last.level}` : ''})
+      {last.levelUp ? ' · leveled up! 🎉' : ''} · {taken}/{tests.length} taken
+    </>
+  ) : (
+    <>No tests taken yet — this is the milestone that matters</>
+  )
+
   const testCard = (
     <div className="test-suggest vt-test">
       {nextTest ? (
@@ -244,32 +272,19 @@ export default function PlanView({
             <div className="suggest-time">
               {clock(nextTest.suggestedAt)}
               <span className="suggest-in">{fmtIn(nextTest.suggestedAt)}</span>
-              <span className="pill" title="This test is built at your current level">
-                {LEVEL_META[level]?.emoji} {level} difficulty
-              </span>
             </div>
             <p className="muted small" style={{ margin: '2px 0 0' }}>
-              {last ? (
-                <>
-                  Last score: <strong>{Math.round((last.score / last.total) * 100)}%</strong> (
-                  {last.score}/{last.total}){last.levelUp ? ' · leveled up! 🎉' : ''} ·{' '}
-                  {taken}/{tests.length} taken
-                </>
-              ) : (
-                <>No tests taken yet — this is the milestone that matters</>
-              )}
+              {lastLine}
               {LEVELS.indexOf(level) < LEVELS.length - 1 && (
                 <>
-                  {' '}· <strong>80%+</strong> →{' '}
+                  {' '}· <strong>80%+</strong> at your level →{' '}
                   {LEVEL_META[LEVELS[LEVELS.indexOf(level) + 1]]?.emoji}{' '}
                   <strong>{LEVELS[LEVELS.indexOf(level) + 1]}</strong>
                 </>
               )}
             </p>
           </div>
-          <button className="btn" onClick={onTest}>
-            Take it {fmtIn(nextTest.suggestedAt) === 'now' ? 'now ' : ''}🔥
-          </button>
+          {levelButtons}
         </>
       ) : (
         <>
@@ -286,9 +301,7 @@ export default function PlanView({
               One calm pass over the cheat sheet, then step away — you’re ready.
             </p>
           </div>
-          <button className="btn ghost" onClick={onTest}>
-            Retake a test 🔥
-          </button>
+          {levelButtons}
         </>
       )}
     </div>
@@ -301,19 +314,6 @@ export default function PlanView({
           <h2>🗺️ Your cram plan</h2>
         </div>
         <div className="head-controls">
-          <label className="level-select">
-            <span className="muted small">Level</span>
-            <select value={level} onChange={(e) => onLevelChange(e.target.value)}>
-              <option value="novice">🌱 Novice</option>
-              <option value="competent">🍳 Competent</option>
-              <option value="expert">👨‍🍳 Expert</option>
-            </select>
-            <span className="level-tooltip">
-              <strong>🌡️ Difficulty</strong> — changes how hard your summaries, flashcards, and
-              practice tests are. Pick one yourself, or it levels up automatically when you
-              score 80%+ on a practice test.
-            </span>
-          </label>
           <span className="muted small level-note">
             <button className="tour-replay" onClick={() => setTourStep(0)}>
               ❓ tour

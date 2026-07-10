@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Upload from './components/Upload.jsx'
 import TimeSelect from './components/TimeSelect.jsx'
 import Cooking, { COOK_STEPS, REFRY_STEPS } from './components/Cooking.jsx'
@@ -35,6 +35,7 @@ const emptyState = {
   intensity: 'steady', // chill | steady | intense — scales suggested study time
   sleepWindow: null, // { bedMin, wakeMin } — the student's chosen sleep hours
   cramMode: false, // false: daily study portions · true: every block scheduled
+  testLevel: null, // difficulty picked for the practice test being taken
   level: 'novice', // novice | competent | expert — advances on strong practice-test scores
 }
 
@@ -292,15 +293,22 @@ export default function App() {
     return cookMaterials({ version: 1 })
   }, [cookingJob, cookMaterials, state.versions])
 
-  // Changing difficulty re-cooks the materials at the new level.
-  const handleLevelChange = (level) => {
-    if (!LEVELS.includes(level) || level === state.level) return
-    if (state.versions.length > 0) {
-      update({ level, cookingJob: { kind: 'recook' }, screen: 'cooking' })
-    } else {
-      update({ level })
-    }
-  }
+  // The practice-test box offers all three difficulties. When the picked
+  // level differs from the cooked batch, the house engine builds a test at
+  // that heat on the spot (deterministic and instant).
+  const pickedTestLevel = LEVELS.includes(state.testLevel)
+    ? state.testLevel
+    : state.level || 'novice'
+  const testVersion = useMemo(() => {
+    if (!latestVersion) return null
+    if (pickedTestLevel === latestVersion.level) return latestVersion
+    const alt = generateMaterials(state.materials?.text || '', {
+      level: pickedTestLevel,
+      version: latestVersion.version || 1,
+      weakTopics: latestVersion.focusTopics || [],
+    })
+    return { ...latestVersion, test: alt.test, level: pickedTestLevel, source: 'house', note: null }
+  }, [latestVersion, pickedTestLevel, state.materials])
 
   const handleCooked = (fresh) => {
     if (cookingJob.kind === 'refry' || cookingJob.kind === 'recook') {
@@ -406,9 +414,8 @@ export default function App() {
         level={state.level || 'novice'}
         wakeRecalls={state.wakeRecalls || []}
         cramMode={Boolean(state.cramMode)}
-        onLevelChange={handleLevelChange}
         onStartSession={startSession}
-        onTest={() => update({ screen: 'test' })}
+        onTest={(lvl) => update({ screen: 'test', testLevel: LEVELS.includes(lvl) ? lvl : null })}
         onWake={() => update({ screen: 'wake' })}
       />
     ),
@@ -427,7 +434,9 @@ export default function App() {
           setState((s) => (s.session ? { ...s, session: { ...s.session, mode } } : s))
         }
         onEnd={endSession}
-        onTest={() => update({ session: null, breakTimer: null, screen: 'test' })}
+        onTest={() =>
+          update({ session: null, breakTimer: null, screen: 'test', testLevel: null })
+        }
         {...breakHandlers}
       />
     ),
@@ -451,30 +460,43 @@ export default function App() {
         onBack={() => update({ screen: 'plan' })}
       />
     ),
-    test: latestVersion && (
+    test: testVersion && (
       <TestView
-        version={latestVersion}
+        version={testVersion}
         onFinish={(result) => {
           setState((s) => {
-            // Score ≥ 80% advances the student to the next difficulty level.
+            // Score ≥ 80% at the difficulty you took advances your level
+            // past it (never downgrades).
             const currentLevel = s.level || 'novice'
-            const idx = LEVELS.indexOf(currentLevel)
-            const leveledUp =
-              result.score / result.total >= 0.8 && idx < LEVELS.length - 1
-                ? LEVELS[idx + 1]
+            const testedIdx = LEVELS.indexOf(pickedTestLevel)
+            const nextUp =
+              result.score / result.total >= 0.8 && testedIdx < LEVELS.length - 1
+                ? LEVELS[testedIdx + 1]
                 : null
-            const results = [...s.results, { ...result, levelUp: leveledUp }]
+            const newLevel =
+              nextUp && LEVELS.indexOf(nextUp) > LEVELS.indexOf(currentLevel)
+                ? nextUp
+                : currentLevel
+            const results = [
+              ...s.results,
+              {
+                ...result,
+                level: pickedTestLevel,
+                levelUp: newLevel !== currentLevel ? newLevel : null,
+              },
+            ]
             return {
               ...s,
-              level: leveledUp || currentLevel,
+              level: newLevel,
               results,
+              testLevel: null,
               // Fresh gauge target for the stretch to the next practice test.
               sessionGoal: goalFrom(s.plan, results.length, s.timeSpent, s.intensity),
               screen: 'results',
             }
           })
         }}
-        onBack={() => update({ screen: 'plan' })}
+        onBack={() => update({ screen: 'plan', testLevel: null })}
       />
     ),
     results: state.results.length > 0 && (

@@ -49,7 +49,14 @@ export default function TestView({ version, onFinish, onBack }) {
             gets <strong>refried</strong> into your next batch of materials.
           </p>
         </div>
-        <span className="pill hot">{version.label}</span>
+        <span className="head-side">
+          <span className="pill hot">{version.label}</span>{' '}
+          {version.level && (
+            <span className="pill" title="The difficulty you picked for this test">
+              {{ novice: '🌱', competent: '🍳', expert: '👨‍🍳' }[version.level]} {version.level}
+            </span>
+          )}
+        </span>
       </div>
 
       <div className="question">
