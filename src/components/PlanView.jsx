@@ -2,34 +2,27 @@ import { useState } from 'react'
 import { LEVELS, LEVEL_META } from '../lib/engine.js'
 import { suggestStudyBlocks } from '../lib/planner.js'
 import VerticalTimeline from './VerticalTimeline.jsx'
-import RelaxedTimeline from './RelaxedTimeline.jsx'
 import Tour from './Tour.jsx'
 
 const TOUR_KEY = 'cram-brulee-tour-done'
 const TOUR_STEPS = [
   {
-    selector: '.plan-timeline',
-    emoji: '🗓️',
-    title: 'Your plan, day by day',
-    body: 'Each day gets a study portion — hit the hours whenever suits you — plus sleep, wake-up recall, and practice tests. Want every block scheduled? Hit 🔥 Cram Mode.',
-  },
-  {
-    selector: '.stats-row',
-    emoji: '📊',
-    title: 'Your numbers at a glance',
-    body: 'Time studied vs suggested, your reading/recall mix (aim for ~30/70), your last test score, and your level. They update live as you work.',
-  },
-  {
     selector: '.vt-session',
     emoji: '📚',
-    title: 'Your next study block',
-    body: 'Start it whenever you’re ready — inside, switch freely between reading and flashcards, with a break popping up every 45 minutes.',
+    title: 'Your study hub',
+    body: 'Everything study in one place: time done vs suggested, your reading/recall mix (aim ~30/70), today’s portion, and the button that starts a session — breaks pop up automatically.',
   },
   {
     selector: '.vt-test',
     emoji: '🔥',
     title: 'The milestone that matters',
-    body: 'Practice tests simulate the real thing. After each one, your materials are rebuilt around what you missed. Score 80%+ and you level up.',
+    body: 'Practice tests simulate the real thing and show your last score. Afterwards your materials are rebuilt around what you missed — 80%+ levels you up.',
+  },
+  {
+    selector: '.chip-group',
+    emoji: '⏲️',
+    title: 'Countdown & Cram Mode',
+    body: 'The timer counts down to your test — hover it for your day-by-day runway. Hit Cram Mode! and the AI schedules every block, minute by minute.',
   },
   {
     selector: '.level-select',
@@ -63,25 +56,45 @@ export default function PlanView({
   level,
   wakeRecalls,
   cramMode,
-  onToggleCram,
   onLevelChange,
   onStartSession,
   onTest,
   onWake,
 }) {
+  const now = Date.now()
   const tests = plan?.tests || []
   const taken = Math.min(results.length, tests.length)
   const nextTest = tests[taken] || null
+  const last = results[results.length - 1] || null
 
   const blocks = suggestStudyBlocks(plan, intensity)
-  const nextBlock = blocks.find((b) => new Date(b.to).getTime() > Date.now()) || null
+  const nextBlock = blocks.find((b) => new Date(b.to).getTime() > now) || null
 
-  // Default session length: the next suggested block.
-  const recMin = nextBlock
-    ? nextBlock.min
-    : gauge
-      ? Math.max(15, Math.min(300, Math.round(Math.max(0, gauge.targetMin - gauge.doneMin) / 5) * 5 || 30))
-      : 60
+  // Today's remaining portion of the daily target.
+  const todayKey = new Date().toDateString()
+  let todayLeftMin = 0
+  for (const b of blocks) {
+    if (new Date(b.from).toDateString() !== todayKey) continue
+    todayLeftMin += Math.max(0, Math.round((new Date(b.to).getTime() - Math.max(new Date(b.from).getTime(), now)) / 60000))
+  }
+  todayLeftMin = Math.round(todayLeftMin / 15) * 15
+  const dailyMin = typeof intensity === 'number' ? intensity : null
+
+  // Is a wake-up recall due right now?
+  const wakeActive = (plan.sleeps || []).some((s) => {
+    const wakeMs = new Date(s.to).getTime()
+    const logged = (wakeRecalls || []).some((w) => {
+      const t = new Date(w.at).getTime()
+      return t >= new Date(s.from).getTime() && t <= wakeMs + 6 * 3600000
+    })
+    return !logged && now >= wakeMs && now <= wakeMs + 6 * 3600000
+  })
+
+  // Recommended session length: whatever is left of the suggested study
+  // time before the next practice test.
+  const recMin = gauge
+    ? Math.max(15, Math.min(300, Math.round(Math.max(0, gauge.targetMin - gauge.doneMin) / 5) * 5 || 30))
+    : 60
   const [sessionLen, setSessionLen] = useState(recMin)
   const [breakEvery, setBreakEvery] = useState(45)
 
@@ -93,31 +106,78 @@ export default function PlanView({
     setTourStep(-1)
   }
 
+  const mixTotal = gauge ? gauge.readSec + gauge.recallSec : 0
+  const readPct = mixTotal > 0 ? Math.round((gauge.readSec / mixTotal) * 100) : null
+  const totalTargetMin = Math.max(15, blocks.reduce((m, b) => m + b.min, 0))
+  const totalDonePct = gauge
+    ? Math.min(100, Math.round(((gauge.totalDoneMin || 0) / totalTargetMin) * 100))
+    : 0
+
+  // One card for everything study: meters + today's portion + start controls.
   const sessionCard = (
-    <div className="start-box vt-session">
-      <h3>
-        📚 {cramMode && nextBlock ? 'Next study block' : 'Study session'}
-        {cramMode && nextBlock && (
-          <span className="pill" style={{ marginLeft: 8 }}>
-            suggested {clock(nextBlock.from)}–{clock(nextBlock.to)}
+    <div className="start-box vt-session study-hub">
+      <div className="hub-head">
+        <h3>
+          📚 Study
+          {cramMode && nextBlock && (
+            <span className="pill" style={{ marginLeft: 8 }}>
+              next block {clock(nextBlock.from)}–{clock(nextBlock.to)}
+            </span>
+          )}
+        </h3>
+        {todayLeftMin >= 15 && (
+          <span className="hub-quota" title="Today's remaining portion — split it however suits you">
+            ~{fmtDuration(todayLeftMin)} left today
+            {dailyMin ? ` of ${fmtDuration(dailyMin)}/day` : ''}
           </span>
         )}
-      </h3>
-      <p className="muted small">
-        Break every{' '}
-        <input
-          className="inline-num"
-          type="number"
-          min="10"
-          max="120"
-          value={breakEvery}
-          onChange={(e) =>
-            setBreakEvery(Math.max(10, Math.min(120, Number(e.target.value) || 45)))
-          }
-          aria-label="Break interval in minutes"
-        />{' '}
-        min.
-      </p>
+      </div>
+
+      {gauge && (
+        <div className="hub-meters">
+          <div className="hub-meter" title="Total time studied vs the whole plan's suggestion">
+            <span className="stat-label">📚 studied</span>
+            <span className="stat-value">
+              {fmtDuration(gauge.totalDoneMin || 0)}
+              <span className="stat-of"> / {fmtDuration(totalTargetMin)}</span>
+            </span>
+            <div className="gauge-track mini">
+              <div
+                className={`gauge-fill ${totalDonePct >= 100 ? 'full' : ''}`}
+                style={{ width: `${totalDonePct}%` }}
+              />
+            </div>
+            <span className="stat-sub">
+              {fmtDuration(gauge.doneMin)} / {fmtDuration(gauge.targetMin)} before{' '}
+              {gauge.testN ? `test ${gauge.testN}` : 'final review'}
+            </span>
+          </div>
+          <div className="hub-meter" title="Share of your time rereading vs pulling it back out">
+            <span className="stat-label">🧠 your mix</span>
+            <span className="stat-value">
+              {readPct != null ? (
+                <>
+                  {readPct}
+                  <span className="stat-of"> / </span>
+                  {100 - readPct}
+                </>
+              ) : (
+                '—'
+              )}
+            </span>
+            {readPct != null ? (
+              <div className="split-track mini">
+                <span className="split-study" style={{ width: `${readPct}%` }} />
+                <span className="split-active" style={{ width: `${100 - readPct}%` }} />
+              </div>
+            ) : (
+              <div className="gauge-track mini" />
+            )}
+            <span className="stat-sub">read / recall · aim ~30 / 70</span>
+          </div>
+        </div>
+      )}
+
       <div className="len-row">
         {[30, 45, 60, 90].map((m) => (
           <button
@@ -147,6 +207,21 @@ export default function PlanView({
           />
           <span className="muted small">min</span>
         </span>
+        <span className="muted small hub-break">
+          break every{' '}
+          <input
+            className="inline-num"
+            type="number"
+            min="10"
+            max="120"
+            value={breakEvery}
+            onChange={(e) =>
+              setBreakEvery(Math.max(10, Math.min(120, Number(e.target.value) || 45)))
+            }
+            aria-label="Break interval in minutes"
+          />{' '}
+          min
+        </span>
       </div>
       <button className="btn start-btn" onClick={() => onStartSession(sessionLen, breakEvery)}>
         Start study session →
@@ -154,6 +229,7 @@ export default function PlanView({
     </div>
   )
 
+  // One card for everything test: next milestone + last result + the button.
   const testCard = (
     <div className="test-suggest vt-test">
       {nextTest ? (
@@ -170,15 +246,21 @@ export default function PlanView({
               </span>
             </div>
             <p className="muted small" style={{ margin: '2px 0 0' }}>
-              Rebuilds your materials around what you miss
-              {LEVELS.indexOf(level) < LEVELS.length - 1 ? (
+              {last ? (
+                <>
+                  Last score: <strong>{Math.round((last.score / last.total) * 100)}%</strong> (
+                  {last.score}/{last.total}){last.levelUp ? ' · leveled up! 🎉' : ''} ·{' '}
+                  {taken}/{tests.length} taken
+                </>
+              ) : (
+                <>No tests taken yet — this is the milestone that matters</>
+              )}
+              {LEVELS.indexOf(level) < LEVELS.length - 1 && (
                 <>
                   {' '}· <strong>80%+</strong> →{' '}
                   {LEVEL_META[LEVELS[LEVELS.indexOf(level) + 1]]?.emoji}{' '}
                   <strong>{LEVELS[LEVELS.indexOf(level) + 1]}</strong>
                 </>
-              ) : (
-                <> — you’re at the top shelf 👨‍🍳</>
               )}
             </p>
           </div>
@@ -192,6 +274,12 @@ export default function PlanView({
             <div className="milestone-eyebrow">🏁 All tests taken — final review at</div>
             <div className="suggest-time">{clock(plan.finalReviewAt)}</div>
             <p className="muted small" style={{ margin: '2px 0 0' }}>
+              {last && (
+                <>
+                  Last score: <strong>{Math.round((last.score / last.total) * 100)}%</strong>{' '}
+                  ({last.score}/{last.total}) ·{' '}
+                </>
+              )}
               One calm pass over the cheat sheet, then step away — you’re ready.
             </p>
           </div>
@@ -231,89 +319,6 @@ export default function PlanView({
         </div>
       </div>
 
-      {(() => {
-        const last = results[results.length - 1] || null
-        const mixTotal = gauge ? gauge.readSec + gauge.recallSec : 0
-        const readPct = mixTotal > 0 ? Math.round((gauge.readSec / mixTotal) * 100) : null
-        const totalTargetMin = Math.max(15, blocks.reduce((m, b) => m + b.min, 0))
-        const totalDonePct = gauge
-          ? Math.min(100, Math.round(((gauge.totalDoneMin || 0) / totalTargetMin) * 100))
-          : 0
-        return (
-          <div className="stats-row">
-            <div
-              className="stat"
-              title="Total time studied vs the whole plan's suggestion — the subline is just this stretch"
-            >
-              <span className="stat-label">📚 studied</span>
-              <span className="stat-value">
-                {gauge ? fmtDuration(gauge.totalDoneMin || 0) : '0 min'}
-                <span className="stat-of"> / {fmtDuration(totalTargetMin)}</span>
-              </span>
-              <div className="gauge-track mini">
-                <div
-                  className={`gauge-fill ${totalDonePct >= 100 ? 'full' : ''}`}
-                  style={{ width: `${totalDonePct}%` }}
-                />
-              </div>
-              <span className="stat-sub">
-                {gauge
-                  ? `${fmtDuration(gauge.doneMin)} / ${fmtDuration(gauge.targetMin)} before ${gauge.testN ? `practice test ${gauge.testN}` : 'final review'}`
-                  : 'plan total'}
-              </span>
-            </div>
-            <div className="stat" title="Share of your time rereading vs pulling it back out">
-              <span className="stat-label">🧠 your mix</span>
-              <span className="stat-value">
-                {readPct != null ? (
-                  <>
-                    {readPct}
-                    <span className="stat-of"> / </span>
-                    {100 - readPct}
-                  </>
-                ) : (
-                  '—'
-                )}
-              </span>
-              {readPct != null ? (
-                <div className="split-track mini">
-                  <span className="split-study" style={{ width: `${readPct}%` }} />
-                  <span className="split-active" style={{ width: `${100 - readPct}%` }} />
-                </div>
-              ) : (
-                <div className="gauge-track mini" />
-              )}
-              <span className="stat-sub">read / recall · aim ~30 / 70</span>
-            </div>
-            <div
-              className="stat"
-              title="Your most recent practice test and level — score 80%+ to level up"
-            >
-              <span className="stat-label">🔥 last test · level</span>
-              <span className="stat-value">
-                {last ? (
-                  <>
-                    {Math.round((last.score / last.total) * 100)}%
-                    <span className="stat-of"> · </span>
-                    {LEVEL_META[level]?.emoji} {level}
-                  </>
-                ) : (
-                  <>
-                    <span className="stat-of">— · </span>
-                    {LEVEL_META[level]?.emoji} {level}
-                  </>
-                )}
-              </span>
-              <span className="stat-sub">
-                {last
-                  ? `${last.score}/${last.total}${last.levelUp ? ' · leveled up! 🎉' : ''} · ${taken}/${tests.length} taken`
-                  : `none yet — test 1 awaits · 0/${tests.length} taken`}
-              </span>
-            </div>
-          </div>
-        )
-      })()}
-
       {tourStep >= 0 && (
         <Tour
           steps={TOUR_STEPS}
@@ -325,22 +330,20 @@ export default function PlanView({
         />
       )}
 
-      <div className="cram-row">
-        <span className="muted small">
-          {cramMode
-            ? '🔥 Every block scheduled to the quarter hour — follow the calendar.'
-            : 'Loose plan: hit each day’s hours whenever suits you.'}
-        </span>
-        <button
-          className={`btn ${cramMode ? 'ghost' : ''} cram-btn`}
-          onClick={onToggleCram}
-        >
-          {cramMode ? '✕ Exit Cram Mode' : 'Cram Mode! 🔥'}
-        </button>
-      </div>
+      {wakeActive && !cramMode && onWake && (
+        <div className="wake-banner">
+          <span>
+            <strong>🌅 Wake-up recall</strong> · ~10 min — before you open your notes, write
+            down everything you remember.
+          </span>
+          <button className="btn small-btn" onClick={onWake}>
+            Do it now 🌅
+          </button>
+        </div>
+      )}
 
-      <div className="plan-timeline">
-        {cramMode ? (
+      {cramMode ? (
+        <div className="plan-timeline">
           <VerticalTimeline
             plan={plan}
             testTime={testTime}
@@ -351,19 +354,13 @@ export default function PlanView({
             wakeRecalls={wakeRecalls}
             onWake={onWake}
           />
-        ) : (
-          <RelaxedTimeline
-            plan={plan}
-            testTime={testTime}
-            results={results}
-            intensity={intensity}
-            sessionCard={sessionCard}
-            testCard={testCard}
-            wakeRecalls={wakeRecalls}
-            onWake={onWake}
-          />
-        )}
-      </div>
+        </div>
+      ) : (
+        <>
+          {sessionCard}
+          {testCard}
+        </>
+      )}
     </div>
   )
 }

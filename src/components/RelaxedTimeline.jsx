@@ -137,7 +137,7 @@ export default function RelaxedTimeline({
       return (
         <div key={key} className={`rt-row vt-hover ${past ? 'past' : ''}`}>
           {time}
-          {onWake && !compact ? (
+          {onWake ? (
             <button className="rt-label vt-linkrow" onClick={onWake}>
               🌅 Wake-up recall <span className="vt-try">· try it →</span>
             </button>

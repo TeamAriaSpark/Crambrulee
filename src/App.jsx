@@ -94,7 +94,22 @@ export default function App() {
   const countdown = useCountdown(state.testTime)
   const [tlPinned, setTlPinned] = useState(false)
   const [sessionChipOpen, setSessionChipOpen] = useState(false)
+  const [cramAnim, setCramAnim] = useState(false)
   const chipRef = useRef(null)
+
+  // Entering Cram Mode shows a short "planning" moment before the full
+  // minute-by-minute schedule appears; leaving it is instant.
+  const toggleCram = () => {
+    if (state.cramMode) {
+      setState((s) => ({ ...s, cramMode: false }))
+      return
+    }
+    setCramAnim(true)
+    setTimeout(() => {
+      setState((s) => ({ ...s, cramMode: true }))
+      setCramAnim(false)
+    }, 2600)
+  }
 
   // A pinned session-timer panel closes when you tap/click outside it.
   useEffect(() => {
@@ -346,10 +361,10 @@ export default function App() {
     time: (
       <TimeSelect
         onBack={() => update({ screen: 'upload' })}
-        onDone={(testTime, intensity, sleepWindow) =>
+        onDone={(testTime, dailyMin, sleepWindow) =>
           update({
             testTime,
-            intensity,
+            intensity: dailyMin, // minutes of study per day (numeric intensity)
             sleepWindow,
             cookingJob: { kind: 'initial' },
             screen: 'cooking',
@@ -391,7 +406,6 @@ export default function App() {
         level={state.level || 'novice'}
         wakeRecalls={state.wakeRecalls || []}
         cramMode={Boolean(state.cramMode)}
-        onToggleCram={() => setState((s) => ({ ...s, cramMode: !s.cramMode }))}
         onLevelChange={handleLevelChange}
         onStartSession={startSession}
         onTest={() => update({ screen: 'test' })}
@@ -621,14 +635,29 @@ export default function App() {
           state.screen !== 'upload' &&
           state.screen !== 'time' && (
             <div className="head-right">
-              <div className={`tl-pop ${tlPinned ? 'pinned' : ''}`}>
+              <div className={`tl-pop chip-group ${tlPinned ? 'pinned' : ''}`}>
                 <button
-                  className="countdown-chip"
+                  className={`countdown-chip chip-seg timer-seg ${
+                    state.screen === 'plan' && state.plan ? '' : 'solo'
+                  }`}
                   onClick={() => setTlPinned((p) => !p)}
                   title="Hover or click for your full timeline"
                 >
-                  ⏲️ {countdown.text} until test time
+                  ⏲️ {countdown.text}
                 </button>
+                {state.screen === 'plan' && state.plan && (
+                  <button
+                    className={`chip-seg cram-seg ${state.cramMode ? 'on' : ''}`}
+                    onClick={toggleCram}
+                    title={
+                      state.cramMode
+                        ? 'Back to the loose plan — daily hours, your call when'
+                        : 'Let the AI schedule every block, minute by minute'
+                    }
+                  >
+                    {state.cramMode ? '✕ Cram Mode' : 'Cram Mode! 🔥'}
+                  </button>
+                )}
                 {state.plan && (
                   <div className="tl-panel vt-panel">
                     <h3 className="lt-heading">⏳ Your runway to test day</h3>
@@ -649,6 +678,9 @@ export default function App() {
                         results={state.results}
                         intensity={state.intensity || 'steady'}
                         wakeRecalls={state.wakeRecalls || []}
+                        onWake={
+                          state.screen === 'plan' ? () => update({ screen: 'wake' }) : null
+                        }
                       />
                     )}
                   </div>
@@ -660,6 +692,21 @@ export default function App() {
       </header>
 
       {screens[state.screen] || screens.upload}
+
+      {cramAnim && (
+        <div className="session-overlay">
+          <div className="overlay-card cram-anim">
+            <span className="pot">🍮</span>
+            <h3>🔥 Creating your cram plan!</h3>
+            <p className="muted">
+              Follow this minute-by-minute plan to optimize every second before your test.
+            </p>
+            <div className="progress-track">
+              <div className="progress-fill cram-fill" />
+            </div>
+          </div>
+        </div>
+      )}
 
       <p className="footer-note">
         🥄 Baked on the science of retrieval practice — testing yourself beats rereading, every

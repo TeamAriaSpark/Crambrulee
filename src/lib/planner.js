@@ -84,11 +84,20 @@ export function awakeMinutes(fromISO, toISO, sleeps = []) {
   return min
 }
 
-// How much study we suggest inside one stretch of the runway, given the
-// chosen intensity.
+// How much study we suggest inside one stretch of the runway. `intensity`
+// is either a legacy preset name or, in the current UI, the number of
+// minutes per day the student chose to study (converted to a share of a
+// ~16h waking day).
+const AWAKE_DAY_MIN = 16 * 60
+export function intensityFactor(intensity) {
+  if (typeof intensity === 'number' && Number.isFinite(intensity)) {
+    return Math.min(0.85, Math.max(0.05, intensity / AWAKE_DAY_MIN))
+  }
+  return (INTENSITY[intensity] || INTENSITY.steady).factor
+}
+
 export function suggestedStudyMin(fromISO, toISO, sleeps = [], intensity = 'steady') {
-  const factor = (INTENSITY[intensity] || INTENSITY.steady).factor
-  const raw = awakeMinutes(fromISO, toISO, sleeps) * factor
+  const raw = awakeMinutes(fromISO, toISO, sleeps) * intensityFactor(intensity)
   return Math.max(10, Math.round(raw / 5) * 5)
 }
 
