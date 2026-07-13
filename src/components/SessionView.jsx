@@ -1,8 +1,34 @@
 import { useEffect, useState } from 'react'
 import StudyView from './StudyView.jsx'
 import FlashcardsView from './FlashcardsView.jsx'
+import Tour from './Tour.jsx'
 import { TIPS } from '../lib/planner.js'
 import { setAmbient } from '../lib/ambient.js'
+
+// First-time walkthrough of the session screen: where the timer lives, how
+// the reading/recall switch works, and the ambient music. Shown once, the
+// first time a session ever runs.
+const SESSION_TOUR_KEY = 'cram-brulee-session-tour-done'
+const SESSION_TOUR_STEPS = [
+  {
+    selector: '.session-chip',
+    emoji: '⏲️',
+    title: 'Your session timer',
+    body: 'This counts down to your next break — the ring around it drains as the whole session goes, and the notches mark upcoming breaks. Hover it for the exact time left, your reading/recall mix, and the End button.',
+  },
+  {
+    selector: '.mode-switch',
+    emoji: '🧠',
+    title: 'Reading vs recall',
+    body: 'Flip between rereading your materials and active recall with flashcards. We track your mix as you go — aim for ~30% reading, ~70% recall. We’ll tell you which one is recommended right now.',
+  },
+  {
+    selector: '.music-pick',
+    emoji: '🎵',
+    title: 'Ambient music',
+    body: 'Optional background sound — lo-fi, rain, waves, deep focus — generated right in your browser. Some students focus better with a steady soundscape; try one and see.',
+  },
+]
 
 const fmtSpent = (sec) => {
   if (sec < 60) return '<1 min'
@@ -61,6 +87,15 @@ export default function SessionView({
     return () => setAmbient('off')
   }, [music])
 
+  const [tourStep, setTourStep] = useState(() =>
+    localStorage.getItem(SESSION_TOUR_KEY) ? -1 : 0
+  )
+  const endSessionTour = () => {
+    localStorage.setItem(SESSION_TOUR_KEY, '1')
+    setTourStep(-1)
+  }
+  const anyOverlay = over || breakDue || breakRunning || breakOver
+
   const other = mode === 'study' ? 'recall' : 'study'
   const headerExtra = (
     <div className="session-tools">
@@ -104,6 +139,19 @@ export default function SessionView({
           onPickVersion={onPickVersion}
           onFinish={() => onMode('study')}
           onBack={onEnd}
+        />
+      )}
+
+      {tourStep >= 0 && !anyOverlay && (
+        <Tour
+          steps={SESSION_TOUR_STEPS}
+          step={tourStep}
+          onNext={() =>
+            tourStep >= SESSION_TOUR_STEPS.length - 1
+              ? endSessionTour()
+              : setTourStep(tourStep + 1)
+          }
+          onSkip={endSessionTour}
         />
       )}
 
