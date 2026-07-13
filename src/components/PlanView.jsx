@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { LEVEL_META } from '../lib/engine.js'
 import { suggestStudyBlocks } from '../lib/planner.js'
 import VerticalTimeline from './VerticalTimeline.jsx'
 import Tour from './Tour.jsx'
 
 const TOUR_KEY = 'cram-brulee-tour-done'
+const SESSION_INTRO_KEY = 'cram-brulee-session-intro'
 const TOUR_STEPS = [
   {
     selector: '.vt-session',
@@ -15,8 +15,8 @@ const TOUR_STEPS = [
   {
     selector: '.vt-test',
     emoji: '🔥',
-    title: 'Three tests, rising heat',
-    body: 'Your plan schedules three practice tests before the real one — novice, then competent, then expert. Whatever you miss gets refried into your materials, and 80%+ levels you up.',
+    title: 'Three practice tests',
+    body: 'Your plan schedules three practice tests before the real one — novice, then competent, then expert. Your materials are rebuilt around whatever you miss, and 80%+ levels you up.',
   },
   {
     selector: '.chip-group',
@@ -88,6 +88,21 @@ export default function PlanView({
     : 60
   const [sessionLen, setSessionLen] = useState(recMin)
   const [breakEvery, setBreakEvery] = useState(45)
+
+  // The first time they ever start a session, explain what it's for.
+  const [introOpen, setIntroOpen] = useState(false)
+  const startSession = () => {
+    if (!localStorage.getItem(SESSION_INTRO_KEY)) {
+      setIntroOpen(true)
+      return
+    }
+    onStartSession(sessionLen, breakEvery)
+  }
+  const startAfterIntro = () => {
+    localStorage.setItem(SESSION_INTRO_KEY, '1')
+    setIntroOpen(false)
+    onStartSession(sessionLen, breakEvery)
+  }
 
   const [tourStep, setTourStep] = useState(() =>
     localStorage.getItem(TOUR_KEY) ? -1 : 0
@@ -217,19 +232,19 @@ export default function PlanView({
           min
         </span>
       </div>
-      <button className="btn start-btn" onClick={() => onStartSession(sessionLen, breakEvery)}>
+      <button className="btn start-btn" onClick={startSession}>
         Start study session →
       </button>
     </div>
   )
 
   // One card for everything test: the plan's three practice tests — one at
-  // each difficulty, rising heat — with status and a take button per row.
+  // each difficulty — with status and a take button per row.
   const TEST_LADDER = ['novice', 'competent', 'expert']
   const testCard = (
     <div className="test-suggest ladder vt-test">
       <div className="milestone-eyebrow">
-        🔥 Your practice tests — one at each heat
+        Your practice tests — one at each difficulty
       </div>
       {tests.map((t, i) => {
         const lvl = t.level || TEST_LADDER[Math.min(i, TEST_LADDER.length - 1)]
@@ -242,7 +257,7 @@ export default function PlanView({
               <span className="ptest-title">
                 <strong>
                   {done ? '✓ ' : ''}
-                  {LEVEL_META[lvl]?.emoji} {lvl.charAt(0).toUpperCase() + lvl.slice(1)}
+                  {lvl.charAt(0).toUpperCase() + lvl.slice(1)}
                 </strong>
                 <span className="muted small"> · test {t.n} of {tests.length}</span>
               </span>
@@ -250,7 +265,7 @@ export default function PlanView({
                 {done && res ? (
                   <>
                     taken · <strong>{Math.round((res.score / res.total) * 100)}%</strong> (
-                    {res.score}/{res.total}){res.levelUp ? ' · leveled up! 🎉' : ''}
+                    {res.score}/{res.total}){res.levelUp ? ' · leveled up!' : ''}
                   </>
                 ) : (
                   <>
@@ -268,7 +283,7 @@ export default function PlanView({
                 className={`btn ${isNext ? '' : 'ghost small-btn'}`}
                 onClick={() => onTest(lvl)}
               >
-                {isNext ? 'Take it 🔥' : 'take early'}
+                {isNext ? 'Take it' : 'take early'}
               </button>
             )}
           </div>
@@ -277,11 +292,11 @@ export default function PlanView({
       <p className="muted small ptest-note">
         {taken >= tests.length ? (
           <>
-            🏁 All three taken — final review at <strong>{clock(plan.finalReviewAt)}</strong>:
+            All three taken — final review at <strong>{clock(plan.finalReviewAt)}</strong>:
             one calm pass, then rest.
           </>
         ) : (
-          <>Score 80%+ to level your materials up · whatever you miss gets refried in.</>
+          <>Score 80%+ to level your materials up · your materials are rebuilt around whatever you miss.</>
         )}
       </p>
     </div>
@@ -333,9 +348,9 @@ export default function PlanView({
             results={results}
             intensity={intensity}
             sessionCard={sessionCard}
-            testCard={testCard}
             wakeRecalls={wakeRecalls}
             onWake={onWake}
+            onTest={onTest}
           />
         </div>
       ) : (
@@ -343,6 +358,37 @@ export default function PlanView({
           {sessionCard}
           {testCard}
         </>
+      )}
+
+      {introOpen && (
+        <div className="session-overlay">
+          <div className="overlay-card session-intro">
+            <h3>📚 Before your first session</h3>
+            <p className="muted small intro-lede">
+              A quick word on what this timer is actually for:
+            </p>
+            <ul className="intro-list">
+              <li>
+                <strong>Pull it out, don’t pour it in.</strong> Rereading feels productive but
+                fades fast. Testing yourself — flashcards, blank-page recall — is what makes it
+                stick. Aim for ~30% reading, ~70% recall.
+              </li>
+              <li>
+                <strong>Breaks are part of the plan.</strong> We’ll nudge you to step away on
+                your schedule — memory consolidates in the gaps, not during the marathon.
+              </li>
+              <li>
+                <strong>Every minute counts toward your plan.</strong> Your studied meter and
+                reading/recall mix fill in as you go, so you can see if you’re on track.
+              </li>
+            </ul>
+            <div className="intro-actions">
+              <button className="btn start-btn" onClick={startAfterIntro}>
+                Got it — start my session →
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

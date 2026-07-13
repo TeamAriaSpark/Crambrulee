@@ -22,7 +22,8 @@ const ORDER = { start: 0, now: 1, sleep: 2, wake: 3, study: 4, test: 5, final: 6
 
 // The Cram Mode timeline: one vertical rail with every study block, break,
 // sleep, wake-up recall, and practice test scheduled to the quarter hour.
-// The next study block and next practice test expand into their cards.
+// The next study block expands into its card; each practice test sits at
+// its own scheduled time as a row with a take button.
 export default function VerticalTimeline({
   plan,
   testTime,
@@ -30,9 +31,9 @@ export default function VerticalTimeline({
   intensity = 'steady',
   compact = false,
   sessionCard = null,
-  testCard = null,
   wakeRecalls = [],
   onWake = null,
+  onTest = null,
 }) {
   const now = Date.now()
   const tests = plan?.tests || []
@@ -68,7 +69,15 @@ export default function VerticalTimeline({
     ...blocks.map((b) => ({ type: 'study', at: b.from, b })),
     ...sleeps.map((s) => ({ type: 'sleep', at: s.from, s })),
     ...wakes,
-    ...tests.map((t, i) => ({ type: 'test', at: t.suggestedAt, t, lvl: t.level || ['novice', 'competent', 'expert'][Math.min(i, 2)], done: i < taken, next: i === taken })),
+    ...tests.map((t, i) => ({
+      type: 'test',
+      at: t.suggestedAt,
+      t,
+      lvl: t.level || ['novice', 'competent', 'expert'][Math.min(i, 2)],
+      done: i < taken,
+      next: i === taken,
+      res: i < taken ? results[i] : null,
+    })),
     { type: 'final', at: plan.finalReviewAt },
     { type: 'end', at: plan.testAt || testTime },
   ].sort((a, b) => new Date(a.at) - new Date(b.at) || ORDER[a.type] - ORDER[b.type])
@@ -149,10 +158,9 @@ export default function VerticalTimeline({
     }
 
     const showSessionCard = !compact && sessionCard && e.type === 'study' && e.b.from === nextBlockFrom
-    const showTestCard = !compact && testCard && e.type === 'test' && e.next
 
     return (
-      <div key={key} className={`vt-row ${past ? 'past' : ''}`}>
+      <div key={key} className={`vt-row ${past ? 'past' : ''}${e.type === 'test' && e.next ? ' vt-test' : ''}`}>
         <span className="vt-time">{e.here ? clock(new Date(now).toISOString()) : dayClock(e.at)}</span>
         <span className="vt-spine">
           {e.here ? (
@@ -166,9 +174,11 @@ export default function VerticalTimeline({
               {e.logged ? '✓' : '🌅'}
             </span>
           ) : e.type === 'test' ? (
-            <span className={`vt-ico test ${e.done ? 'done' : ''} ${e.next ? 'next' : ''}`}>
-              {e.done ? '✓' : '🔥'}
-            </span>
+            e.done ? (
+              <span className="vt-ico test done">✓</span>
+            ) : (
+              <span className={`vt-dot test ${e.next ? 'glow' : ''}`} />
+            )
           ) : e.type === 'end' ? (
             <span className="vt-ico end">🎓</span>
           ) : (
@@ -254,42 +264,50 @@ export default function VerticalTimeline({
               </div>
             ))}
 
-          {e.type === 'test' &&
-            (showTestCard ? (
-              testCard
-            ) : (
-              <div className="vt-hover">
-                <p className="vt-line">
-                  <strong>
-                    {e.done ? '✓' : '🔥'} Practice test {e.t.n}
-                  </strong>
-                  <span className="muted small">
-                    {' '}· {{ novice: '🌱', competent: '🍳', expert: '👨‍🍳' }[e.lvl]} {e.lvl}
-                    {e.done ? ' · taken' : ''}
-                  </span>
-                </p>
-                <span className="vt-tip">
-                  {e.done ? (
-                    <>
-                      <strong>✓ Practice test {e.t.n}</strong> — taken. The refry that followed
-                      doubled down on what you missed.
-                    </>
+          {e.type === 'test' && (
+            <div className={`vt-hover${!compact && onTest ? ' vt-test-row' : ''}`}>
+              <p className="vt-line">
+                <strong>
+                  {e.done ? '✓ ' : ''}Practice test {e.t.n}
+                </strong>
+                <span className="muted small">
+                  {' '}· {e.lvl}
+                  {e.done && e.res ? (
+                    <> · taken · {Math.round((e.res.score / e.res.total) * 100)}%</>
+                  ) : e.done ? (
+                    ' · taken'
                   ) : (
-                    <>
-                      <strong>🔥 Practice test {e.t.n}</strong> — simulates the real thing, then
-                      your materials are rebuilt around what you miss. Score 80%+ to level up.
-                    </>
+                    ''
                   )}
                 </span>
-              </div>
-            ))}
+              </p>
+              {!compact && onTest && (
+                <button
+                  className={`btn ${e.next ? '' : 'ghost'} small-btn`}
+                  onClick={() => onTest(e.lvl)}
+                >
+                  {e.done ? 'retake' : e.next ? 'Take it' : 'take early'}
+                </button>
+              )}
+              <span className="vt-tip">
+                {e.done ? (
+                  <>
+                    <strong>Practice test {e.t.n}</strong> — taken. Your materials were rebuilt
+                    around what you missed.
+                  </>
+                ) : (
+                  <>
+                    <strong>Practice test {e.t.n}</strong> ({e.lvl}) — simulates the real thing,
+                    then your materials are rebuilt around what you miss. Score 80%+ to level up.
+                  </>
+                )}
+              </span>
+            </div>
+          )}
 
-          {e.type === 'final' &&
-            (!compact && testCard && taken >= tests.length ? (
-              testCard
-            ) : (
-              <p className="vt-line muted small">🍮 final review — one calm pass, then rest</p>
-            ))}
+          {e.type === 'final' && (
+            <p className="vt-line muted small">🍮 final review — one calm pass, then rest</p>
+          )}
 
           {e.type === 'end' && (
             <p className="vt-line vt-end-line">

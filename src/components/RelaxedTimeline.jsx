@@ -166,23 +166,23 @@ export default function RelaxedTimeline({
           {time}
           <span className="rt-label">
             <strong>
-              {a.done ? '✓' : '🔥'} Practice test {a.t.n}
+              {a.done ? '✓ ' : ''}Practice test {a.t.n}
             </strong>
             <span className="muted small">
-              {' '}· {{ novice: '🌱', competent: '🍳', expert: '👨‍🍳' }[a.lvl]} {a.lvl}
+              {' '}· {a.lvl}
               {a.done ? ' · taken' : ''}
             </span>
           </span>
           <span className="vt-tip">
             {a.done ? (
               <>
-                <strong>✓ Practice test {a.t.n}</strong> — taken. The refry that followed
-                doubled down on what you missed.
+                <strong>Practice test {a.t.n}</strong> — taken. Your materials were rebuilt
+                around what you missed.
               </>
             ) : (
               <>
-                <strong>🔥 Practice test {a.t.n}</strong> — simulates the real thing, then your
-                materials are rebuilt around what you miss. Score 80%+ to level up.
+                <strong>Practice test {a.t.n}</strong> ({a.lvl}) — simulates the real thing,
+                then your materials are rebuilt around what you miss. Score 80%+ to level up.
               </>
             )}
           </span>

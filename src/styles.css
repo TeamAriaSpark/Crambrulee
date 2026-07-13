@@ -619,6 +619,8 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
   border-color: var(--caramel-deep); background: var(--caramel-deep);
   box-shadow: 0 0 0 4px rgba(168, 90, 16, 0.2);
 }
+.vt-dot.test { border-color: var(--step-test); background: #ffe4cf; }
+.vt-dot.test.glow { box-shadow: 0 0 0 4px rgba(201, 79, 46, 0.22); }
 .vt-ico {
   position: relative; z-index: 1; width: 26px; height: 26px; margin-top: 0;
   display: flex; align-items: center; justify-content: center;
@@ -644,6 +646,11 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
   border: 1.5px solid var(--step-study); border-radius: 14px; padding: 10px 16px;
 }
 .wake-cta .vt-line { margin: 0; }
+.vt-test-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+}
+.vt-test-row .vt-line { margin: 0; }
 .vt-body .start-box, .vt-body .test-suggest { margin-top: 2px; }
 .vt.compact .vt-body { padding-bottom: 14px; }
 
@@ -746,6 +753,12 @@ textarea.paste:focus { outline: 2px solid var(--custard-deep); }
   box-shadow: 0 16px 48px rgba(62, 42, 22, 0.35);
 }
 .overlay-card h3 { font-size: 1.3rem; margin-bottom: 8px; }
+.overlay-card.session-intro { text-align: left; max-width: 500px; }
+.session-intro .intro-lede { margin: 0 0 10px; }
+.intro-list { margin: 0; padding-left: 18px; display: grid; gap: 10px; }
+.intro-list li { line-height: 1.5; }
+.intro-actions { margin-top: 18px; }
+.intro-actions .start-btn { width: 100%; }
 
 /* ---------- plan: test suggestion ---------- */
 
