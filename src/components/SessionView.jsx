@@ -87,9 +87,10 @@ export default function SessionView({
     return () => setAmbient('off')
   }, [music])
 
-  const [tourStep, setTourStep] = useState(() =>
-    localStorage.getItem(SESSION_TOUR_KEY) ? -1 : 0
-  )
+  // DEBUG: temporarily auto-play the tour on every session for review.
+  // Once approved, restore the once-only behavior:
+  //   useState(() => (localStorage.getItem(SESSION_TOUR_KEY) ? -1 : 0))
+  const [tourStep, setTourStep] = useState(0)
   const endSessionTour = () => {
     localStorage.setItem(SESSION_TOUR_KEY, '1')
     setTourStep(-1)
@@ -113,6 +114,9 @@ export default function SessionView({
           <option value="focus">🟤 deep focus</option>
         </select>
       </label>
+      <button className="tour-replay" onClick={() => setTourStep(0)}>
+        ❓ tour
+      </button>
     </div>
   )
 
